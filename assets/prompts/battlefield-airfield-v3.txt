@@ -1,0 +1,6 @@
++Use case: precise-object-edit
+Asset type: top-down mobile game battlefield plate
+Primary request: Add only two subtle, well-worn packed-earth aircraft tire paths connecting the runway to the lower-right parking apron, aligned with the established traffic routes. One departure path runs from the center of the parking apron upward to the runway access around 60.5% of image width. One separate arrival path leaves the runway near 40% of image width, curves down beside the hangar, then bends right across the lower apron toward the parking stands. Make both paths look naturally worn by repeated light aircraft traffic: muted compacted soil, faint parallel tire ruts, softened grass edges, consistent with the existing illustrated texture.
+Input images: Image 1 is the edit target and canonical composition.
+Style/medium: preserve the existing realistic hand-painted top-down strategy-game terrain plate exactly.
+Constraints: change only the two ground paths; preserve the trench network, fields, runway, hangar, apron, parking stakes, windsock, vegetation, craters, lighting, color, perspective, crop, dimensions, and every existing object. No aircraft, people, vehicles, text, flags, insignia, logos, or watermarks. Do not move or redesign anything. The paths must remain subtle and integrated, not bright roads or dashed route markings.

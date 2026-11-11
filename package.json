@@ -1,0 +1,11 @@
+{
+  "name": "idle-bomber-command-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/core.test.js",
+    "test:browser": "node test/browser-smoke.mjs"
+  }
+}

@@ -1,0 +1,1297 @@
+import {
+  TUNING,
+  applyPurchase,
+  aircraftVisualSize,
+  calculateStats,
+  calculateMedalAward,
+  createPriorityEventSchedule,
+  createDefaultSave,
+  formatBonds,
+  headingVector,
+  pointInCircle,
+  sanitizeSave,
+  selectClosestTarget,
+  selectClosestLoadedAircraft,
+  selectNextTarget,
+  sortiePurchaseCost,
+  turnToward,
+} from "./core.js";
+
+const WORLD = { width: 390, height: 560 };
+const SAVE_KEY = "idle-bomber-command.prototype.v1";
+const canvas = document.querySelector("#gameCanvas");
+const ctx = canvas.getContext("2d");
+const assets = {
+  battlefield: loadImage("assets/game/battlefield-airfield-v3.webp"),
+  biplane: loadImage("assets/game/canvas-biplane-topdown.webp"),
+  bunker: loadImage("assets/game/hardened-bunker-topdown.webp"),
+  emplacement: loadImage("assets/game/soft-emplacement-topdown.webp"),
+};
+const TAXI_OUT_ROUTE = [
+  { x: 236, y: 505 },
+  { x: 236, y: 482 },
+  { x: 236, y: 458 },
+  { x: 236, y: 438 },
+];
+const TAKEOFF_ROUTE = [
+  { x: 350, y: 438 },
+];
+const CLIMB_ROUTE = [
+  { x: 350, y: 330 },
+  { x: 338, y: 164 },
+];
+const EMPTY_RETURN_ROUTE = [
+  { x: 72, y: 292 },
+  { x: 38, y: 330 },
+  { x: 20, y: 374 },
+];
+const FINAL_APPROACH_ROUTE = [
+  { x: 18, y: 402 },
+  { x: 23, y: 422 },
+  { x: 40, y: 434 },
+  { x: 68, y: 438 },
+];
+const LANDING_ROLL_ROUTE = [
+  { x: 96, y: 438 },
+  { x: 156, y: 438 },
+];
+const TAXI_IN_ROUTE = [
+  { x: 163, y: 445 },
+  { x: 160, y: 461 },
+  { x: 165, y: 480 },
+  { x: 184, y: 496 },
+  { x: 210, y: 504 },
+];
+const HOLDING_ROUTE = [
+  { x: 70, y: 300 },
+  { x: 300, y: 300 },
+  { x: 338, y: 164 },
+];
+const TRENCH_RIFLE_POSITIONS = [
+  { x: 42, y: 54 }, { x: 105, y: 91 }, { x: 170, y: 58 },
+  { x: 236, y: 88 }, { x: 304, y: 58 }, { x: 356, y: 96 },
+];
+const AA_POSITIONS = [{ x: 112, y: 118 }, { x: 278, y: 112 }];
+const OPERATIONS = [
+  ["Trench Network", "Broad soft targets · favors swarm coverage"],
+  ["Supply Convoy", "Moving targets · favors speed and repeated attacks"],
+  ["Artillery Battery", "Dispersed guns · first serious anti-air resistance"],
+  ["Forward Operating Base", "Mixed vehicles, stores, and command targets"],
+  ["Rail Yard & Supply Depot", "Large mixed target · tougher structures and flak"],
+  ["Military Airfield", "Runways, hangars, radar, and fighter resistance"],
+  ["Naval Base & Island Fortress", "Armored targets, bunkers, and long range"],
+  ["Hardened Industrial Complex", "Large defended factory network"],
+  ["Integrated Air-Defense Network", "Radar, defenses, and target-order decisions"],
+  ["Deep Mountain Missile Complex", "Distant, concealed, and heavily hardened"],
+  ["Strategic Command Fortress", "Final layered strategic target"],
+];
+
+const ui = Object.fromEntries([
+  "operationLabel", "bankedMedals", "bankedTrophies", "pendingBonds", "statusLabel", "forceReadout",
+  "statusSwatch", "primaryAction", "pauseAction", "activeControls", "debriefDialog",
+  "debriefEarned", "debriefSummary", "debriefSorties", "debriefTargets", "debriefLost",
+  "debriefRecovered", "debriefSurvival", "closeDebrief", "closeDebriefIcon", "priorityButton", "statePlate",
+  "stateCode", "stateTitle", "stateMessage", "announcer", "soundToggle", "effectsToggle", "speedToggle", "speedIndicator",
+  "resetSave", "upgradeList", "baseView", "battleView", "deployAction", "baseAircraftReadout",
+  "baseSummary", "baseOperationNumber", "baseForceStats", "operationName", "operationLock",
+  "previousOperation", "nextOperation", "operationSelector", "aircraftOwnedReadout", "requisitionsTab", "armoryTab",
+  "requisitionsPanel", "armoryPanel", "maintenanceTab", "flightOperationsTab", "maintenancePanel",
+  "flightOperationsPanel", "departmentDialog", "departmentDialogTitle", "departmentDialogSummary",
+  "closeDepartment", "sortieUpgradeList", "sortieUpgradesAction", "sortieDialog", "closeSortieUpgrades", "settingsAction", "settingsDialog", "closeSettings",
+].map((id) => [id, document.querySelector(`#${id}`)]));
+
+let save = loadSave();
+let state = "base";
+let operation = null;
+let selectedOperationIndex = 0;
+let operationGestureStart = null;
+let lastFrame = performance.now();
+let audioContext = null;
+
+function createOperation() {
+  const stats = calculateStats(save);
+  const prioritySchedule = createPriorityEventSchedule();
+  return {
+    elapsed: 0,
+    pendingBonds: 0,
+    baseMedals: 0,
+    destroyedTargets: 0,
+    sortieUpgrades: { payload: 0, armor: 0, turnaround: 0 },
+    sorties: 0,
+    hits: 0,
+    priorityHits: 0,
+    targetWaves: 0,
+    waveRespawn: 0,
+    retreating: false,
+    endReason: "completed",
+    prioritySchedule,
+    fighterClock: 15 + Math.random() * 6,
+    fighter: null,
+    threatEvents: { rifle: 0, aa: 0, fighter: 0 },
+    aircraft: Array.from({ length: save.aircraft }, (_, index) => {
+      const row = Math.floor(index / 4);
+      const column = index % 4;
+      const parkingX = 246 + column * 30;
+      const parkingY = 508 + row * 17;
+      return {
+      id: index + 1,
+      x: parkingX,
+      y: parkingY,
+      parkingX,
+      parkingY,
+      phase: "ground",
+      routeIndex: 0,
+      altitude: 0,
+      heading: 0,
+      integrity: stats.maxIntegrity,
+      cooldown: index * 2.05,
+      threatClock: 0.8 + index * 0.32,
+      visualBank: 0,
+      hasBomb: true,
+      assignedTargetId: null,
+      priorityAssigned: false,
+      callSign: `KITE-${String(index + 1).padStart(2, "0")}`,
+    }; }),
+    targets: createTargets(),
+    priority: null,
+    prioritySpawned: false,
+    effects: [],
+    stats,
+  };
+}
+
+function createTargets() {
+  return [
+    { id: "bunker-left", type: "bunker", x: 125, y: 70, hp: 64, maxHp: 64, attackOrder: 4 },
+    { id: "bunker-right", type: "bunker", x: 265, y: 70, hp: 64, maxHp: 64, attackOrder: 3 },
+    { id: "soft-left", type: "emplacement", x: 78, y: 132, hp: 16, maxHp: 16, attackOrder: 2 },
+    { id: "soft-center", type: "emplacement", x: 195, y: 138, hp: 16, maxHp: 16, attackOrder: 1 },
+    { id: "soft-right", type: "emplacement", x: 312, y: 132, hp: 16, maxHp: 16, attackOrder: 0 },
+  ];
+}
+
+function setState(next, reason = "") {
+  if (state === next) return;
+  state = next;
+  if (next === "playing") {
+    ui.baseView.hidden = true;
+    ui.battleView.hidden = false;
+    ui.statePlate.setAttribute("aria-hidden", "true");
+    ui.pauseAction.disabled = false;
+  } else if (next === "paused") {
+    showPlate("OPERATION HELD", "Paused", reason || "The force is holding until you return.");
+    ui.pauseAction.disabled = false;
+  } else if (next === "base") {
+    ui.baseView.hidden = false;
+    ui.battleView.hidden = true;
+    ui.statePlate.setAttribute("aria-hidden", "true");
+    ui.pauseAction.disabled = true;
+  }
+  updateUI();
+}
+
+function deploy() {
+  if (selectedOperationIndex !== 0) {
+    announce(`${OPERATIONS[selectedOperationIndex][0]} is locked in this prototype.`);
+    return;
+  }
+  operation = createOperation();
+  if (ui.departmentDialog.open) ui.departmentDialog.close();
+  if (ui.debriefDialog.open) ui.debriefDialog.close();
+  setState("playing");
+  requestAnimationFrame(resizeCanvas);
+  announce(`Operation ${save.operations + 1} deployed with ${save.aircraft} biplane${save.aircraft === 1 ? "" : "s"}.`);
+  cue(180, 0.08);
+}
+
+function pause(reason = "Operation paused.") {
+  if (state !== "playing") return;
+  setState("paused", reason);
+  announce(reason);
+}
+
+function resume() {
+  if (state !== "paused") return;
+  setState("playing");
+  announce("Operation resumed.");
+}
+
+function finishOperation(retreated = false) {
+  if (state === "debrief") return;
+  if (ui.sortieDialog.open) ui.sortieDialog.close();
+  operation.endReason = retreated ? "retreated" : "completed";
+  const recovered = operation.aircraft.filter((plane) => plane.phase === "ground").length;
+  const medalAward = calculateMedalAward(operation.baseMedals, recovered, operation.aircraft.length);
+  operation.medalAward = medalAward;
+  save.medals += medalAward.total;
+  save.operations += 1;
+  operation.effects = [];
+  operation.priority = null;
+  persist();
+  state = "debrief";
+  ui.statePlate.setAttribute("aria-hidden", "true");
+  ui.priorityButton.hidden = true;
+  ui.debriefEarned.textContent = `+${formatBonds(medalAward.total)}`;
+  const outcome = retreated ? "Emergency retreat completed" : "Operation completed";
+  ui.debriefSummary.textContent = `${outcome}: ${operation.sorties} attack run${operation.sorties === 1 ? "" : "s"}, ${operation.destroyedTargets} target${operation.destroyedTargets === 1 ? "" : "s"} destroyed${operation.priorityHits ? `, ${operation.priorityHits} priority strike${operation.priorityHits === 1 ? "" : "s"}` : ""}. Temporary war bonds and sortie upgrades have expired.`;
+  ui.debriefSorties.textContent = String(operation.sorties);
+  ui.debriefTargets.textContent = String(operation.destroyedTargets);
+  ui.debriefLost.textContent = String(operation.aircraft.filter((plane) => plane.phase === "knocked").length);
+  ui.debriefRecovered.textContent = String(recovered);
+  ui.debriefSurvival.textContent = `+${formatBonds(medalAward.survivalBonus)} (${Math.round(medalAward.survivalRate * 100)}%)`;
+  ui.debriefDialog.showModal();
+  announce(`Operation complete. ${medalAward.total} medals secured, including ${medalAward.survivalBonus} from aircraft survival.`);
+  cue(105, 0.14);
+  updateUI();
+}
+
+function emergencyRetreat() {
+  if (!operation || !["playing", "paused"].includes(state) || operation.retreating) return;
+  operation.retreating = true;
+  operation.priority = null;
+  ui.priorityButton.hidden = true;
+  if (state === "paused") setState("playing");
+  for (const plane of operation.aircraft) {
+    if (["ground", "knocked"].includes(plane.phase)) continue;
+    plane.hasBomb = false;
+    plane.priorityAssigned = false;
+    beginReturn(plane);
+  }
+  announce("Emergency retreat ordered. Surviving aircraft are recovering to protect the medal survival bonus.");
+  cue(72, 0.18);
+  updateUI();
+}
+
+function returnToBase() {
+  if (ui.debriefDialog.open) ui.debriefDialog.close();
+  operation = null;
+  setState("base");
+  announce("Returned to Forward Airfield. Maintenance and engineering are available.");
+}
+
+function update(dt) {
+  if (state !== "playing" || !operation) return;
+  operation.elapsed += dt;
+  updateTargets(dt);
+  updatePriority(dt);
+  updateFighter(dt);
+
+  for (const plane of operation.aircraft) {
+    if (plane.phase === "knocked") continue;
+    if (plane.phase === "ground") {
+      plane.cooldown -= dt;
+      if (!operation.retreating && plane.cooldown <= 0 && operation.waveRespawn <= 0) {
+        plane.phase = "taxiOut";
+        plane.routeIndex = 0;
+        plane.hasBomb = true;
+        plane.assignedTargetId = null;
+      }
+      continue;
+    }
+
+    updateAircraftRoute(plane, dt);
+
+    if (plane.y < 280) updateGroundThreats(plane, dt);
+
+  }
+
+  operation.effects = operation.effects.filter((effect) => (effect.life -= dt) > 0);
+  if (operation.retreating && operation.aircraft.every((plane) => ["ground", "knocked"].includes(plane.phase))) finishOperation(true);
+  else if (operation.aircraft.every((plane) => plane.phase === "knocked")) finishOperation();
+}
+
+function updateTargets(dt) {
+  if (operation.waveRespawn <= 0) return;
+  operation.waveRespawn -= dt;
+  if (operation.waveRespawn <= 0) {
+    operation.targets.forEach((target) => { target.hp = target.maxHp; });
+    operation.waveRespawn = 0;
+    operation.targetWaves += 1;
+    for (const plane of operation.aircraft) {
+      if (!plane.hasBomb || !["holding", "attackApproach"].includes(plane.phase)) continue;
+      const target = selectClosestTarget(operation.targets, plane);
+      if (!target) continue;
+      plane.assignedTargetId = target.id;
+      changePhase(plane, "attackApproach");
+    }
+    announce("The full five-target position has rebuilt. Loaded aircraft are beginning another pass.");
+  }
+}
+
+function updateAircraftRoute(plane, dt) {
+  if (plane.phase === "taxiOut") {
+    plane.altitude = 0;
+    if (followRoute(plane, TAXI_OUT_ROUTE, dt)) changePhase(plane, "takeoffRoll");
+    return;
+  }
+  if (plane.phase === "takeoffRoll") {
+    plane.altitude = Math.min(.18, plane.altitude + dt * .11);
+    if (followRoute(plane, TAKEOFF_ROUTE, dt)) changePhase(plane, "climb");
+    return;
+  }
+  if (plane.phase === "climb") {
+    plane.altitude = Math.min(1, plane.altitude + dt * .16);
+    if (followRoute(plane, CLIMB_ROUTE, dt)) beginAttackOrHold(plane);
+    return;
+  }
+  if (plane.phase === "attackApproach") {
+    const target = operation.targets.find((candidate) => candidate.id === plane.assignedTargetId && candidate.hp > 0) || selectNextTarget(operation.targets);
+    if (!target) { beginHolding(plane); return; }
+    plane.assignedTargetId = target.id;
+    if (moveToward(plane, target, dt)) strikeTarget(plane, target);
+    return;
+  }
+  if (plane.phase === "targetOverfly" || plane.phase === "priorityOverfly") {
+    if (followRoute(plane, plane.route, dt)) beginReturn(plane);
+    return;
+  }
+  if (plane.phase === "priorityApproach") {
+    if (!operation.priority) { beginAttackOrHold(plane); return; }
+    if (moveToward(plane, operation.priority, dt)) strikeTarget(plane, operation.priority);
+    return;
+  }
+  if (plane.phase === "holding") {
+    plane.altitude = 1;
+    if (selectNextTarget(operation.targets)) { beginAttackOrHold(plane); return; }
+    if (followRoute(plane, HOLDING_ROUTE, dt)) plane.routeIndex = 0;
+    return;
+  }
+  if (plane.phase === "emptyReturn") {
+    plane.altitude = Math.max(.42, plane.altitude - dt * .10);
+    if (followRoute(plane, EMPTY_RETURN_ROUTE, dt)) changePhase(plane, "final");
+    return;
+  }
+  if (plane.phase === "final") {
+    plane.altitude = Math.max(0, plane.altitude - dt * .22);
+    if (followRoute(plane, FINAL_APPROACH_ROUTE, dt)) {
+      plane.altitude = 0;
+      changePhase(plane, "landingRoll");
+    }
+    return;
+  }
+  if (plane.phase === "landingRoll") {
+    plane.altitude = 0;
+    if (followRoute(plane, LANDING_ROLL_ROUTE, dt)) changePhase(plane, "taxiIn");
+    return;
+  }
+  if (plane.phase === "taxiIn") {
+    plane.altitude = 0;
+    const route = [...TAXI_IN_ROUTE, { x: plane.parkingX, y: plane.parkingY }];
+    if (followRoute(plane, route, dt)) {
+      plane.x = plane.parkingX;
+      plane.y = plane.parkingY;
+      plane.phase = "ground";
+      plane.routeIndex = 0;
+      plane.cooldown = operation.stats.turnaround;
+      plane.hasBomb = true;
+    }
+  }
+}
+
+function changePhase(plane, phase) {
+  plane.phase = phase;
+  plane.routeIndex = 0;
+  if (["ground", "taxiOut", "takeoffRoll", "landingRoll", "taxiIn"].includes(phase)) plane.visualBank = 0;
+}
+
+function beginAttackOrHold(plane) {
+  if (operation.priority?.marked && operation.priority.assigneeId === plane.id) {
+    changePhase(plane, "priorityApproach");
+    return;
+  }
+  const target = selectNextTarget(operation.targets);
+  if (!target) { beginHolding(plane); return; }
+  plane.assignedTargetId = target.id;
+  changePhase(plane, "attackApproach");
+}
+
+function beginHolding(plane) {
+  plane.assignedTargetId = null;
+  changePhase(plane, "holding");
+}
+
+function followRoute(plane, route, dt) {
+  const waypoint = route[plane.routeIndex];
+  if (!waypoint) return true;
+  if (moveToward(plane, waypoint, dt)) {
+    plane.x = waypoint.x;
+    plane.y = waypoint.y;
+    plane.routeIndex += 1;
+  }
+  return plane.routeIndex >= route.length;
+}
+
+function moveToward(plane, waypoint, dt) {
+  const dx = waypoint.x - plane.x;
+  const dy = waypoint.y - plane.y;
+  const distance = Math.hypot(dx, dy);
+  if (distance <= 3) return true;
+  const desiredHeading = Math.atan2(dy, dx) + Math.PI / 2;
+  const previousHeading = plane.heading;
+  plane.heading = turnToward(previousHeading, desiredHeading, TUNING.aircraftTurnRate * dt);
+  const headingChange = Math.atan2(Math.sin(plane.heading - previousHeading), Math.cos(plane.heading - previousHeading));
+  const bankAllowed = !["ground", "taxiOut", "takeoffRoll", "landingRoll", "taxiIn"].includes(plane.phase);
+  const targetBank = bankAllowed
+    ? Math.max(-1, Math.min(1, headingChange / Math.max(TUNING.aircraftTurnRate * dt, 0.0001)))
+    : 0;
+  plane.visualBank = bankAllowed
+    ? (plane.visualBank || 0) + (targetBank - (plane.visualBank || 0)) * Math.min(1, dt * 8)
+    : 0;
+  const angularError = Math.atan2(Math.sin(desiredHeading - plane.heading), Math.cos(desiredHeading - plane.heading));
+  const alignment = bankAllowed ? Math.max(0.18, Math.cos(angularError)) : Math.max(0, Math.cos(angularError));
+  const travel = Math.min(operation.stats.speed * dt * alignment, Math.max(0, distance - 1.5));
+  const forward = headingVector(plane.heading);
+  plane.x += forward.x * travel;
+  plane.y += forward.y * travel;
+  return Math.hypot(waypoint.x - plane.x, waypoint.y - plane.y) <= 3.2;
+}
+
+function beginReturn(plane) {
+  plane.assignedTargetId = null;
+  plane.priorityAssigned = false;
+  changePhase(plane, "emptyReturn");
+}
+
+function updatePriority(dt) {
+  if (!operation.prioritySpawned && operation.elapsed >= operation.prioritySchedule.spawnAt) {
+    operation.prioritySpawned = true;
+    operation.priority = {
+      ...operation.prioritySchedule.position,
+      radius: 26,
+      life: operation.prioritySchedule.life,
+      marked: false,
+    };
+    ui.priorityButton.hidden = false;
+    announce("Priority target exposed. Tap Mark target or press 1.");
+  }
+  if (!operation.priority) return;
+  if (operation.priority.marked && !operation.priority.assigneeId) assignPriorityAircraft();
+  if (!operation.priority.marked) operation.priority.life -= dt;
+  if (operation.priority.life <= 0) {
+    operation.priority = null;
+    ui.priorityButton.hidden = true;
+    announce("Priority target withdrew.");
+  }
+}
+
+function markPriority() {
+  if (!operation?.priority) return;
+  operation.priority.marked = true;
+  ui.priorityButton.hidden = true;
+  assignPriorityAircraft();
+  announce(operation.priority.assigneeId
+    ? `Priority target marked. ${operation.aircraft.find((plane) => plane.id === operation.priority.assigneeId)?.callSign} is peeling off.`
+    : "Priority target marked. The next loaded aircraft will divert.");
+  cue(440, 0.07);
+}
+
+function assignPriorityAircraft() {
+  if (!operation?.priority?.marked) return;
+  const plane = selectClosestLoadedAircraft(operation.aircraft, operation.priority);
+  if (!plane) return;
+  operation.priority.assigneeId = plane.id;
+  plane.priorityAssigned = true;
+  plane.assignedTargetId = null;
+  changePhase(plane, "priorityApproach");
+}
+
+function strikeTarget(plane, target) {
+  plane.hasBomb = false;
+  operation.sorties += 1;
+  operation.pendingBonds += TUNING.warBondsPerDrop;
+  if (target === operation.priority) {
+    operation.baseMedals += TUNING.medalRewards.priority;
+    operation.destroyedTargets += 1;
+    operation.priorityHits += 1;
+    operation.hits += 1;
+    addEffect(target.x, target.y, "priority");
+    operation.priority = null;
+    ui.priorityButton.hidden = true;
+    announce(`Priority target destroyed. ${TUNING.medalRewards.priority} medals secured.`);
+    cue(90, 0.12);
+    plane.route = [{ x: Math.max(42, target.x - 34), y: target.y + 8 }];
+    changePhase(plane, "priorityOverfly");
+    return;
+  }
+
+  const wasActive = target.hp > 0;
+  const dealt = Math.min(target.hp, operation.stats.payload);
+  target.hp -= dealt;
+  operation.hits += 1;
+  addEffect(target.x, target.y, "impact");
+  if (wasActive && target.hp <= 0) {
+    const medals = TUNING.medalRewards[target.type] || 1;
+    operation.baseMedals += medals;
+    operation.destroyedTargets += 1;
+    announce(`${target.type === "bunker" ? "Hardened target" : "Emplacement"} destroyed. ${medals} ${medals === 1 ? "medal" : "medals"} secured.`);
+  }
+  if (target.hp <= 0 && operation.targets.every((candidate) => candidate.hp <= 0)) {
+    operation.waveRespawn = TUNING.targetWaveDelay;
+    announce(`All five targets destroyed. Rebuilding in ${Math.ceil(TUNING.targetWaveDelay)} seconds.`);
+  }
+  cue(120, 0.05);
+  plane.route = [{ x: Math.max(38, target.x - 34), y: target.y + 8 }];
+  changePhase(plane, "targetOverfly");
+}
+
+function updateGroundThreats(plane, dt) {
+  plane.threatClock -= dt;
+  if (plane.threatClock > 0) return;
+  const rifleFire = Math.random() < 0.68;
+  const positions = rifleFire ? TRENCH_RIFLE_POSITIONS : AA_POSITIONS;
+  const source = positions.reduce((closest, candidate) => {
+    if (!closest) return candidate;
+    return Math.hypot(candidate.x - plane.x, candidate.y - plane.y) < Math.hypot(closest.x - plane.x, closest.y - plane.y)
+      ? candidate : closest;
+  }, null);
+  const minimum = rifleFire ? TUNING.rifleDamageMin : TUNING.aaDamageMin;
+  const maximum = rifleFire ? TUNING.rifleDamageMax : TUNING.aaDamageMax;
+  damagePlane(plane, randomInteger(minimum, maximum), rifleFire ? "rifle" : "aa", source);
+  plane.threatClock = TUNING.threatIntervalMin + Math.random() * (TUNING.threatIntervalMax - TUNING.threatIntervalMin);
+}
+
+function updateFighter(dt) {
+  if (!operation || operation.retreating) return;
+  if (!operation.fighter) {
+    operation.fighterClock -= dt;
+    if (operation.fighterClock > 0) return;
+    const direction = Math.random() < 0.5 ? 1 : -1;
+    operation.fighter = {
+      x: direction > 0 ? -36 : WORLD.width + 36,
+      y: 145 + Math.random() * 105,
+      direction,
+      speed: 112,
+      heading: direction > 0 ? Math.PI / 2 : -Math.PI / 2,
+      phase: "sweep",
+      targetId: null,
+      fired: false,
+    };
+    announce("Enemy fighter sweeping across the operation area.");
+    return;
+  }
+
+  const fighter = operation.fighter;
+  const airborne = operation.aircraft.filter((plane) => !["ground", "taxiOut", "takeoffRoll", "landingRoll", "taxiIn", "knocked"].includes(plane.phase));
+  let target = airborne.find((plane) => plane.id === fighter.targetId);
+  if (!fighter.fired && !target && airborne.length) {
+    target = airborne
+      .map((plane) => ({ plane, distance: Math.hypot(plane.x - fighter.x, plane.y - fighter.y) }))
+      .sort((left, right) => left.distance - right.distance)[0]?.plane;
+    if (target) {
+      fighter.targetId = target.id;
+      fighter.phase = "attack";
+    }
+  }
+
+  if (!fighter.fired && target) {
+    const distance = Math.hypot(target.x - fighter.x, target.y - fighter.y);
+    const desiredHeading = Math.atan2(target.y - fighter.y, target.x - fighter.x) + Math.PI / 2;
+    const headingError = Math.abs(Math.atan2(Math.sin(desiredHeading - fighter.heading), Math.cos(desiredHeading - fighter.heading)));
+    steerEntityToward(fighter, target, dt, TUNING.fighterTurnRate);
+    if (distance < 46 && headingError < .42) {
+      fighter.fired = true;
+      fighter.phase = "egress";
+      damagePlane(target, randomInteger(TUNING.fighterDamageMin, TUNING.fighterDamageMax), "fighter", fighter);
+      announce(`${target.callSign} took fire from an enemy fighter.`);
+    }
+  } else {
+    const egress = { x: fighter.direction > 0 ? WORLD.width + 58 : -58, y: Math.max(70, Math.min(320, fighter.y - 34)) };
+    steerEntityToward(fighter, egress, dt, TUNING.fighterTurnRate);
+  }
+  if ((fighter.fired || !airborne.length) && (fighter.x < -48 || fighter.x > WORLD.width + 48 || fighter.y < -48 || fighter.y > WORLD.height + 48)) {
+    operation.fighter = null;
+    operation.fighterClock = TUNING.fighterIntervalMin + Math.random() * (TUNING.fighterIntervalMax - TUNING.fighterIntervalMin);
+  }
+}
+
+function steerEntityToward(entity, waypoint, dt, turnRate) {
+  const desiredHeading = Math.atan2(waypoint.y - entity.y, waypoint.x - entity.x) + Math.PI / 2;
+  entity.heading = turnToward(entity.heading, desiredHeading, turnRate * dt);
+  const forward = headingVector(entity.heading);
+  entity.x += forward.x * entity.speed * dt;
+  entity.y += forward.y * entity.speed * dt;
+}
+
+function damagePlane(plane, amount, type, source) {
+  if (plane.phase === "knocked") return;
+  if (operation.threatEvents[type] !== undefined) operation.threatEvents[type] += 1;
+  plane.integrity = Math.max(0, plane.integrity - amount);
+  addEffect(plane.x, plane.y, type, source ? { fromX: source.x, fromY: source.y } : {});
+  if (plane.integrity <= 0) {
+    plane.phase = "knocked";
+    if (operation.priority?.assigneeId === plane.id) operation.priority.assigneeId = null;
+    addEffect(plane.x, plane.y, "lost");
+    cue(55, 0.18);
+  }
+}
+
+function randomInteger(minimum, maximum) {
+  return minimum + Math.floor(Math.random() * (maximum - minimum + 1));
+}
+
+function addEffect(x, y, type, extra = {}) {
+  const duration = type === "lost" ? 1.3
+    : type === "rifle" ? 0.26
+      : type === "aa" ? 0.32
+        : type === "fighter" ? 0.36
+          : 0.65;
+  operation.effects.push({ x, y, type, ...extra, life: duration, maxLife: duration });
+}
+
+function render() {
+  ctx.clearRect(0, 0, WORLD.width, WORLD.height);
+  drawGround();
+  drawTargets();
+  if (operation) {
+    drawFighter();
+    for (const plane of operation.aircraft) drawAircraft(plane);
+    drawEffects();
+    drawPriority();
+  } else {
+    drawAircraft({ x: 195, y: 510, phase: "ground", integrity: calculateStats(save).maxIntegrity, id: 1, bank: 1 });
+  }
+  drawCanvasHUD();
+}
+
+function drawGround() {
+  if (assets.battlefield.complete && assets.battlefield.naturalWidth) {
+    ctx.drawImage(assets.battlefield, 0, 0, WORLD.width, WORLD.height);
+    return;
+  }
+  ctx.fillStyle = "#6d7447";
+  ctx.fillRect(0, 0, WORLD.width, WORLD.height);
+  ctx.fillStyle = "#765b3d";
+  ctx.fillRect(0, 0, WORLD.width, 115);
+  ctx.fillStyle = "#b69a66";
+  ctx.fillRect(0, 470, WORLD.width, 90);
+}
+
+function drawTargets() {
+  const targets = operation?.targets || createTargets();
+  targets.forEach((target) => {
+    const active = target.hp > 0;
+    ctx.save();
+    ctx.globalAlpha = active ? 1 : .24;
+    const image = target.type === "bunker" ? assets.bunker : assets.emplacement;
+    const size = target.type === "bunker" ? 54 : 43;
+    if (image.complete && image.naturalWidth) {
+      if (target.type === "emplacement") {
+        ctx.translate(target.x, target.y);
+        ctx.rotate(Math.PI);
+        ctx.drawImage(image, -size / 2, -size / 2, size, size);
+      } else {
+        ctx.drawImage(image, target.x - size / 2, target.y - size / 2, size, size);
+      }
+    } else {
+      ctx.fillStyle = target.type === "bunker" ? "#554838" : "#6b583d";
+      ctx.beginPath(); ctx.arc(target.x, target.y, size * .34, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+
+    if (operation) {
+      const width = target.type === "bunker" ? 46 : 36;
+      const y = target.y + (target.type === "bunker" ? 30 : 24);
+      ctx.fillStyle = "rgba(23,34,31,.62)";
+      ctx.fillRect(target.x - width / 2, y, width, 4);
+      if (active) {
+        ctx.fillStyle = target.type === "bunker" ? "#d38e32" : "#c94432";
+        ctx.fillRect(target.x - width / 2, y, width * (target.hp / target.maxHp), 4);
+      } else {
+        ctx.strokeStyle = "rgba(23,34,31,.62)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(target.x - 10, target.y - 10); ctx.lineTo(target.x + 10, target.y + 10);
+        ctx.moveTo(target.x + 10, target.y - 10); ctx.lineTo(target.x - 10, target.y + 10);
+        ctx.stroke();
+      }
+    }
+  });
+
+  if (operation?.waveRespawn > 0) {
+    ctx.fillStyle = "rgba(23,34,31,.84)";
+    ctx.fillRect(133, 145, 124, 22);
+    ctx.fillStyle = "#efe5c8";
+    ctx.font = "700 10px 'Barlow Condensed', Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(`POSITION REBUILDING · ${Math.ceil(operation.waveRespawn)}`, 195, 160);
+    ctx.textAlign = "start";
+  }
+}
+
+function drawAircraft(plane) {
+  if (plane.phase === "knocked") return;
+  const size = aircraftVisualSize(plane.altitude ?? (plane.phase === "ground" ? 0 : 1));
+  const half = size / 2;
+  const angle = plane.heading || 0;
+  ctx.save();
+  ctx.translate(plane.x, plane.y);
+  const flightJitter = (plane.altitude || 0) > .65 ? Math.sin((operation?.elapsed || 0) * 2 + plane.id) * 0.035 : 0;
+  ctx.rotate(angle + flightJitter);
+  const bank = plane.visualBank || 0;
+  const bankAmount = save.settings.reducedEffects ? bank * 0.45 : bank;
+  ctx.transform(1 - Math.abs(bankAmount) * 0.18, bankAmount * 0.08, bankAmount * 0.09, 1, bankAmount * 1.5, 0);
+  if (assets.biplane.complete && assets.biplane.naturalWidth) {
+    ctx.drawImage(assets.biplane, -half, -half, size, size);
+  } else {
+    ctx.scale(size / 42, size / 42);
+    ctx.fillStyle = "#d8c69b";
+    ctx.fillRect(-31, -4, 62, 8);
+    ctx.fillRect(-25, 7, 50, 7);
+    ctx.fillStyle = "#4b3426";
+    ctx.fillRect(-4, -18, 8, 44);
+  }
+  ctx.restore();
+
+  if (operation && plane.phase !== "ground" && plane.altitude > .65) {
+    const max = operation.stats.maxIntegrity;
+    ctx.fillStyle = "rgba(23,34,31,.35)";
+    ctx.fillRect(plane.x - 10, plane.y + half + 2, 20, 2);
+    ctx.fillStyle = plane.integrity / max < .35 ? "#a7372b" : "#efe5c8";
+    ctx.fillRect(plane.x - 10, plane.y + half + 2, 20 * (plane.integrity / max), 2);
+    drawFlightTag(plane);
+  }
+}
+
+function drawFighter() {
+  const fighter = operation?.fighter;
+  if (!fighter) return;
+  ctx.save();
+  ctx.translate(fighter.x, fighter.y);
+  ctx.rotate(fighter.heading);
+  const size = 34;
+  if (assets.biplane.complete && assets.biplane.naturalWidth) {
+    ctx.filter = "grayscale(1) brightness(.36) contrast(1.35)";
+    ctx.drawImage(assets.biplane, -size / 2, -size / 2, size, size);
+    ctx.filter = "none";
+    ctx.fillStyle = "#a7372b";
+    ctx.fillRect(-3, 8, 6, 5);
+  } else {
+    ctx.fillStyle = "#17221f";
+    ctx.fillRect(-16, -5, 32, 7);
+    ctx.fillRect(-13, 5, 26, 6);
+    ctx.fillRect(-3, -16, 6, 34);
+    ctx.fillStyle = "#a7372b";
+    ctx.fillRect(-3, 8, 6, 5);
+  }
+  ctx.restore();
+}
+
+function drawFlightTag(plane) {
+  const width = 43;
+  const height = 14;
+  const offset = 11 + (plane.id % 3) * 2;
+  const x = plane.x > 300 ? plane.x - width - offset : plane.x + offset;
+  const y = Math.max(42, Math.min(plane.y - 8 + (plane.id % 2) * 10, 528));
+  ctx.save();
+  ctx.strokeStyle = "rgba(23,34,31,.55)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(plane.x + (x < plane.x ? -6 : 6), plane.y);
+  ctx.lineTo(x < plane.x ? x + width : x, y + height / 2);
+  ctx.stroke();
+  ctx.fillStyle = "rgba(239,229,200,.94)";
+  ctx.fillRect(x, y, width, height);
+  ctx.fillStyle = "#a7372b";
+  ctx.fillRect(x, y, 3, height);
+  ctx.fillStyle = "#17221f";
+  ctx.font = "700 8px 'Barlow Condensed', Arial";
+  ctx.fillText((plane.callSign || "KITE-01").replace("KITE-", "K-"), x + 7, y + 10);
+  ctx.restore();
+}
+
+function drawPriority() {
+  const target = operation?.priority;
+  if (!target) return;
+  ctx.save();
+  ctx.strokeStyle = target.marked ? "#fff4b5" : "#a7372b";
+  ctx.lineWidth = 3;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.arc(target.x, target.y, target.radius, 0, Math.PI * 2); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = "#4e5e3c";
+  ctx.fillRect(target.x - 14, target.y - 9, 22, 18);
+  ctx.fillStyle = "#2b332b";
+  ctx.fillRect(target.x + 8, target.y - 6, 9, 12);
+  ctx.fillStyle = "#a9c0b5";
+  ctx.fillRect(target.x + 10, target.y - 4, 5, 4);
+  ctx.fillStyle = "#1d251f";
+  ctx.beginPath();
+  ctx.arc(target.x - 9, target.y + 10, 4, 0, Math.PI * 2);
+  ctx.arc(target.x + 11, target.y + 10, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawEffects() {
+  if (!operation || save.settings.reducedEffects) return;
+  for (const effect of operation.effects) {
+    const progress = 1 - effect.life / effect.maxLife;
+    const alpha = Math.max(0, 1 - progress);
+    if (["rifle", "aa", "fighter"].includes(effect.type) && Number.isFinite(effect.fromX)) {
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = effect.type === "fighter" ? "#fff4b5" : effect.type === "aa" ? "#17221f" : "#cc8a24";
+      ctx.lineWidth = effect.type === "fighter" ? 1.5 : effect.type === "aa" ? 1.25 : 1;
+      ctx.beginPath();
+      ctx.moveTo(effect.fromX, effect.fromY);
+      ctx.lineTo(effect.x, effect.y);
+      ctx.stroke();
+      ctx.fillStyle = effect.type === "fighter" ? "#fff4b5" : effect.type === "aa" ? "#17221f" : "#cc8a24";
+      ctx.beginPath(); ctx.arc(effect.fromX, effect.fromY, effect.type === "fighter" ? 1.8 : 1.3, 0, Math.PI * 2); ctx.fill();
+      continue;
+    }
+    const radius = effect.type === "lost" ? 12 + progress * 30 : 5 + progress * 17;
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = effect.type === "aa" ? "#26342d" : effect.type === "priority" ? "#fff4b5" : "#a7372b";
+    ctx.lineWidth = effect.type === "lost" ? 5 : 3;
+    ctx.beginPath(); ctx.arc(effect.x, effect.y, radius, 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawCanvasHUD() {
+  const label = state === "playing" ? "SORTIE ACTIVE" : state === "paused" ? "OPERATION HELD" : state === "debrief" ? "FORCE RECOVERED" : "FIELD READY";
+  ctx.fillStyle = "rgba(23,34,31,.76)";
+  ctx.fillRect(12, 12, 112, 23);
+  ctx.fillStyle = "#efe5c8";
+  ctx.font = "700 10px 'Barlow Condensed', Arial";
+  ctx.fillText(label, 22, 27);
+  if (operation) {
+    const seconds = Math.floor(operation.elapsed);
+    ctx.fillStyle = "rgba(23,34,31,.76)";
+    ctx.fillRect(319, 12, 59, 23);
+    ctx.fillStyle = "#efe5c8";
+    ctx.font = "700 11px 'Barlow Condensed', Arial";
+    ctx.fillText(`${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`, 331, 27);
+  }
+}
+
+function resizeCanvas() {
+  const ratio = Math.min(window.devicePixelRatio || 1, 2);
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.round(rect.width * ratio);
+  canvas.height = Math.round(rect.height * ratio);
+  ctx.setTransform(canvas.width / WORLD.width, 0, 0, canvas.height / WORLD.height, 0, 0);
+  render();
+}
+
+function pointerToWorld(event) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: ((event.clientX - rect.left) / rect.width) * WORLD.width,
+    y: ((event.clientY - rect.top) / rect.height) * WORLD.height,
+  };
+}
+
+function handleCanvasPointer(event) {
+  if (state !== "playing" || !operation?.priority) return;
+  if (pointInCircle(pointerToWorld(event), operation.priority)) markPriority();
+}
+
+function updateUI() {
+  const stats = calculateStats(save);
+  ui.operationLabel.textContent = `Operation ${String(save.operations + 1).padStart(2, "0")} · Trench Network`;
+  ui.bankedMedals.textContent = formatBonds(save.medals);
+  ui.bankedTrophies.textContent = formatBonds(save.trophies);
+  ui.pendingBonds.textContent = formatBonds(operation?.pendingBonds || 0);
+  ui.baseAircraftReadout.textContent = `${save.aircraft} serviceable biplane${save.aircraft === 1 ? "" : "s"}`;
+  ui.aircraftOwnedReadout.textContent = `${save.aircraft} in service`;
+  ui.baseForceStats.textContent = `Payload ${stats.payload} · Integrity ${stats.maxIntegrity}`;
+  updateOperationSelector();
+  ui.soundToggle.checked = save.settings.sound;
+  ui.effectsToggle.checked = save.settings.reducedEffects;
+  ui.speedToggle.checked = save.settings.doubleSpeed;
+  ui.speedIndicator.hidden = !save.settings.doubleSpeed || !["playing", "paused"].includes(state);
+
+  const active = operation?.aircraft.filter((plane) => plane.phase !== "knocked") || [];
+  const totalIntegrity = Math.round(active.reduce((sum, plane) => sum + plane.integrity, 0));
+  const totalMax = operation ? operation.stats.maxIntegrity * save.aircraft : stats.maxIntegrity * save.aircraft;
+  const ratio = totalMax ? totalIntegrity / totalMax : 0;
+  ui.statusLabel.textContent = state === "base" ? "Force ready" : state === "debrief" ? "Force recovered" : operation?.retreating ? "Emergency recovery" : active.length ? "Force airborne" : "Force combat ineffective";
+  ui.forceReadout.textContent = state === "base" || state === "debrief"
+    ? `${save.aircraft} biplane${save.aircraft === 1 ? "" : "s"} · ${stats.maxIntegrity} integrity each`
+    : `${active.length}/${save.aircraft} flying · ${totalIntegrity} integrity`;
+  ui.statusSwatch.className = `status-swatch${ratio <= 0 ? " lost" : ratio < .45 ? " damaged" : ""}`;
+
+  ui.primaryAction.textContent = operation?.retreating ? "Retreat in progress" : "Emergency retreat";
+  ui.primaryAction.disabled = !operation || !["playing", "paused"].includes(state) || operation.retreating;
+  ui.pauseAction.disabled = state !== "playing" && state !== "paused";
+  ui.pauseAction.querySelector("span").textContent = state === "paused" ? "Resume" : "Pause";
+  ui.pauseAction.setAttribute("aria-label", state === "paused" ? "Resume operation" : "Pause operation");
+  updatePurchases();
+  updateSortiePurchases();
+}
+
+function updatePurchases() {
+  for (const button of ui.upgradeList.querySelectorAll("[data-purchase]")) {
+    const kind = button.dataset.purchase;
+    let cost;
+    try { cost = kind === "aircraft" ? Math.round(TUNING.aircraftBaseCost * TUNING.aircraftCostGrowth ** (save.aircraft - 1)) : Math.round(TUNING.upgradeBaseCosts[kind] * TUNING.upgradeCostGrowth[kind] ** save.upgrades[kind]); }
+    catch { continue; }
+    button.querySelector(`[data-cost="${kind}"]`).textContent = `${cost} medals`;
+    button.disabled = state !== "base" || save.medals < cost;
+  }
+  const stats = calculateStats(save);
+  document.querySelector('[data-effect="payload"]').textContent = `All biplanes · payload ${stats.payload} → ${stats.payload + TUNING.payloadPerLevel}`;
+  document.querySelector('[data-effect="armor"]').textContent = `All biplanes · integrity ${stats.maxIntegrity} → ${stats.maxIntegrity + TUNING.armorPerLevel}`;
+  document.querySelector('[data-effect="speed"]').textContent = `All biplanes · speed ${stats.speed} → ${stats.speed + TUNING.speedPerLevel}`;
+  const nextTurn = Math.max(TUNING.minimumTurnaround, stats.turnaround - TUNING.turnaroundPerLevel);
+  document.querySelector('[data-effect="turnaround"]').textContent = `All biplanes · turnaround ${stats.turnaround.toFixed(1)}s → ${nextTurn.toFixed(1)}s`;
+}
+
+function updateSortiePurchases() {
+  const upgrades = operation?.sortieUpgrades || { payload: 0, armor: 0, turnaround: 0 };
+  const currentStats = operation?.stats || calculateStats(save, upgrades);
+  for (const button of ui.sortieUpgradeList.querySelectorAll("[data-sortie-purchase]")) {
+    const kind = button.dataset.sortiePurchase;
+    const cost = sortiePurchaseCost(upgrades, kind);
+    button.querySelector(`[data-sortie-cost="${kind}"]`).textContent = `${cost} bonds`;
+    button.disabled = !operation || !["playing", "paused"].includes(state) || operation.retreating || operation.pendingBonds < cost;
+  }
+  document.querySelector('[data-sortie-effect="payload"]').textContent = `Payload ${currentStats.payload} → ${currentStats.payload + TUNING.sortiePayloadPerLevel}`;
+  document.querySelector('[data-sortie-effect="armor"]').textContent = `Integrity ${currentStats.maxIntegrity} → ${currentStats.maxIntegrity + TUNING.sortieArmorPerLevel}`;
+  const nextTurnaround = Math.max(TUNING.minimumTurnaround, currentStats.turnaround - TUNING.sortieTurnaroundPerLevel);
+  document.querySelector('[data-sortie-effect="turnaround"]').textContent = `Turnaround ${currentStats.turnaround.toFixed(1)}s → ${nextTurnaround.toFixed(1)}s`;
+}
+
+function buy(kind) {
+  const result = applyPurchase(save, kind);
+  if (!result.purchased) return;
+  save = result.save;
+  persist();
+  cue(520, 0.06);
+  announce(`${kind === "aircraft" ? "Biplane added" : `${kind} upgraded`}. ${result.cost} medals spent.`);
+  updateUI();
+}
+
+function buySortieUpgrade(kind) {
+  if (!operation || !["playing", "paused"].includes(state) || operation.retreating) return;
+  const cost = sortiePurchaseCost(operation.sortieUpgrades, kind);
+  if (operation.pendingBonds < cost) return;
+  const previousStats = operation.stats;
+  operation.pendingBonds -= cost;
+  operation.sortieUpgrades[kind] += 1;
+  operation.stats = calculateStats(save, operation.sortieUpgrades);
+  if (kind === "armor") {
+    const integrityGain = operation.stats.maxIntegrity - previousStats.maxIntegrity;
+    for (const plane of operation.aircraft) {
+      if (plane.phase !== "knocked") plane.integrity = Math.min(operation.stats.maxIntegrity, plane.integrity + integrityGain);
+    }
+  }
+  cue(620, 0.06);
+  announce(`${kind} sortie requisition issued. ${cost} war bonds spent; it expires after this operation.`);
+  updateUI();
+}
+
+function showPlate(code, title, message) {
+  ui.stateCode.textContent = code;
+  ui.stateTitle.textContent = title;
+  ui.stateMessage.textContent = message;
+  ui.statePlate.setAttribute("aria-hidden", "false");
+}
+
+function announce(message) { ui.announcer.textContent = message; }
+
+function cue(frequency, duration) {
+  if (!save.settings.sound) return;
+  try {
+    audioContext ||= new AudioContext();
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    oscillator.frequency.value = frequency;
+    oscillator.type = "triangle";
+    gain.gain.setValueAtTime(0.025, audioContext.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + duration);
+    oscillator.connect(gain).connect(audioContext.destination);
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + duration);
+  } catch { /* sound is optional */ }
+}
+
+function persist() { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); }
+function loadSave() {
+  try { return sanitizeSave(JSON.parse(localStorage.getItem(SAVE_KEY))); }
+  catch { return createDefaultSave(); }
+}
+
+function resetPrototype() {
+  if (!window.confirm("Reset medals, boss trophies, aircraft, upgrades, and operation history? This cannot be undone.")) return;
+  save = createDefaultSave();
+  operation = null;
+  persist();
+  if (ui.debriefDialog.open) ui.debriefDialog.close();
+  state = "playing";
+  setState("base");
+  announce("Prototype progress reset.");
+}
+
+function updateOperationSelector() {
+  const [name, summary] = OPERATIONS[selectedOperationIndex];
+  const available = selectedOperationIndex === 0;
+  ui.operationName.textContent = name;
+  ui.baseSummary.textContent = summary;
+  ui.baseOperationNumber.textContent = String(selectedOperationIndex + 1).padStart(2, "0");
+  ui.operationLock.textContent = available ? "Available" : "Locked for testing";
+  ui.operationLock.classList.toggle("is-locked", !available);
+  ui.previousOperation.disabled = selectedOperationIndex === 0;
+  ui.nextOperation.disabled = selectedOperationIndex === OPERATIONS.length - 1;
+  ui.deployAction.disabled = state !== "base" || !available;
+  ui.deployAction.textContent = available ? `Deploy to ${name}` : "Operation locked in prototype";
+  ui.operationLabel.textContent = `Operation ${String(selectedOperationIndex + 1).padStart(2, "0")} · ${name}`;
+}
+
+function selectOperation(index) {
+  selectedOperationIndex = Math.max(0, Math.min(OPERATIONS.length - 1, index));
+  updateOperationSelector();
+  const [name] = OPERATIONS[selectedOperationIndex];
+  announce(selectedOperationIndex === 0 ? `${name} selected and available.` : `${name}, locked in this prototype.`);
+}
+
+function openDepartment(name) {
+  const departments = {
+    requisitions: ["Requisitions", "Commission aircraft with permanent medals."],
+    armory: ["Armory", "Select an aircraft and improve its permanent armament."],
+    maintenance: ["Maintenance", "Select an aircraft and improve its structure or engine."],
+    flightOperations: ["Flight Operations", "Train crews and improve airfield-wide procedures."],
+  };
+  const panels = [
+    [ui.requisitionsTab, ui.requisitionsPanel, "requisitions"],
+    [ui.armoryTab, ui.armoryPanel, "armory"],
+    [ui.maintenanceTab, ui.maintenancePanel, "maintenance"],
+    [ui.flightOperationsTab, ui.flightOperationsPanel, "flightOperations"],
+  ];
+  for (const [tab, panel, panelName] of panels) {
+    const active = panelName === name;
+    panel.hidden = !active;
+    tab.classList.toggle("is-active", active);
+  }
+  ui.departmentDialogTitle.textContent = departments[name][0];
+  ui.departmentDialogSummary.textContent = departments[name][1];
+  if (!ui.departmentDialog.open) ui.departmentDialog.showModal();
+}
+
+function closeDepartment() {
+  if (ui.departmentDialog.open) ui.departmentDialog.close();
+  for (const button of [ui.requisitionsTab, ui.armoryTab, ui.maintenanceTab, ui.flightOperationsTab]) button.classList.remove("is-active");
+}
+
+function loadImage(source) {
+  const image = new Image();
+  image.decoding = "async";
+  image.src = source;
+  image.addEventListener("load", render);
+  return image;
+}
+
+function frame(now) {
+  const dt = Math.min(0.05, (now - lastFrame) / 1000);
+  lastFrame = now;
+  update(dt * (save.settings.doubleSpeed ? 2 : 1));
+  render();
+  updateUI();
+  requestAnimationFrame(frame);
+}
+
+ui.deployAction.addEventListener("click", deploy);
+ui.primaryAction.addEventListener("click", emergencyRetreat);
+ui.pauseAction.addEventListener("click", () => state === "paused" ? resume() : pause());
+ui.priorityButton.addEventListener("click", markPriority);
+ui.closeDebrief.addEventListener("click", returnToBase);
+ui.closeDebriefIcon.addEventListener("click", returnToBase);
+ui.debriefDialog.addEventListener("cancel", (event) => { event.preventDefault(); returnToBase(); });
+ui.requisitionsTab.addEventListener("click", () => openDepartment("requisitions"));
+ui.armoryTab.addEventListener("click", () => openDepartment("armory"));
+ui.maintenanceTab.addEventListener("click", () => openDepartment("maintenance"));
+ui.flightOperationsTab.addEventListener("click", () => openDepartment("flightOperations"));
+ui.closeDepartment.addEventListener("click", closeDepartment);
+ui.departmentDialog.addEventListener("cancel", (event) => { event.preventDefault(); closeDepartment(); });
+ui.departmentDialog.addEventListener("close", () => {
+  for (const button of [ui.requisitionsTab, ui.armoryTab, ui.maintenanceTab, ui.flightOperationsTab]) button.classList.remove("is-active");
+});
+ui.settingsAction.addEventListener("click", () => { if (!ui.settingsDialog.open) ui.settingsDialog.showModal(); });
+ui.closeSettings.addEventListener("click", () => ui.settingsDialog.close());
+ui.settingsDialog.addEventListener("cancel", (event) => { event.preventDefault(); ui.settingsDialog.close(); });
+ui.sortieUpgradesAction.addEventListener("click", () => { if (!ui.sortieDialog.open) ui.sortieDialog.showModal(); });
+ui.closeSortieUpgrades.addEventListener("click", () => ui.sortieDialog.close());
+ui.sortieDialog.addEventListener("cancel", (event) => { event.preventDefault(); ui.sortieDialog.close(); });
+document.querySelectorAll("[data-theater]").forEach((button) => button.addEventListener("click", () => announce(`${button.dataset.theater} is reserved for a future 100-sector campaign.`)));
+ui.previousOperation.addEventListener("click", () => selectOperation(selectedOperationIndex - 1));
+ui.nextOperation.addEventListener("click", () => selectOperation(selectedOperationIndex + 1));
+ui.operationSelector.addEventListener("pointerdown", (event) => { operationGestureStart = event.clientX; });
+ui.operationSelector.addEventListener("pointerup", (event) => {
+  if (operationGestureStart === null) return;
+  const delta = event.clientX - operationGestureStart;
+  operationGestureStart = null;
+  if (Math.abs(delta) < 45) return;
+  selectOperation(selectedOperationIndex + (delta < 0 ? 1 : -1));
+});
+ui.operationSelector.addEventListener("pointercancel", () => { operationGestureStart = null; });
+ui.upgradeList.addEventListener("click", (event) => {
+  const locked = event.target.closest("[data-locked]");
+  if (locked) announce(`${locked.dataset.locked} is visible for planning but locked in this prototype.`);
+});
+ui.upgradeList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-purchase]");
+  if (button) buy(button.dataset.purchase);
+});
+ui.sortieUpgradeList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-sortie-purchase]");
+  if (button) buySortieUpgrade(button.dataset.sortiePurchase);
+});
+ui.soundToggle.addEventListener("change", () => { save.settings.sound = ui.soundToggle.checked; persist(); });
+ui.effectsToggle.addEventListener("change", () => { save.settings.reducedEffects = ui.effectsToggle.checked; persist(); });
+ui.speedToggle.addEventListener("change", () => { save.settings.doubleSpeed = ui.speedToggle.checked; persist(); updateUI(); });
+ui.resetSave.addEventListener("click", resetPrototype);
+canvas.addEventListener("pointerdown", handleCanvasPointer);
+window.addEventListener("resize", resizeCanvas);
+new ResizeObserver(resizeCanvas).observe(canvas);
+document.fonts?.ready.then(resizeCanvas);
+window.addEventListener("blur", () => pause("Paused when the window lost focus."));
+document.addEventListener("visibilitychange", () => { if (document.hidden) pause("Paused while the game was in the background."); });
+document.addEventListener("keydown", (event) => {
+  if (event.code === "Space") {
+    event.preventDefault();
+    if (state === "playing") pause();
+    else if (state === "paused") resume();
+  }
+  if (event.key === "1") markPriority();
+  if (state === "base" && !ui.departmentDialog.open && event.key === "ArrowLeft") selectOperation(selectedOperationIndex - 1);
+  if (state === "base" && !ui.departmentDialog.open && event.key === "ArrowRight") selectOperation(selectedOperationIndex + 1);
+  if ((event.key === "r" || event.key === "R") && state === "base") deploy();
+});
+
+if ("serviceWorker" in navigator) window.addEventListener("load", async () => {
+  let refreshing = false;
+  const hadController = Boolean(navigator.serviceWorker.controller);
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (refreshing || !hadController) return;
+    refreshing = true;
+    window.location.reload();
+  });
+  await navigator.serviceWorker.register("./sw.js");
+});
+
+window.__IBC__ = {
+  getState: () => ({
+    state,
+    save: structuredClone(save),
+    operation: operation ? {
+      elapsed: operation.elapsed,
+      pendingBonds: operation.pendingBonds,
+      baseMedals: operation.baseMedals,
+      destroyedTargets: operation.destroyedTargets,
+      sortieUpgrades: structuredClone(operation.sortieUpgrades),
+      medalAward: operation.medalAward ? structuredClone(operation.medalAward) : null,
+      stats: structuredClone(operation.stats),
+      sorties: operation.sorties,
+      hits: operation.hits,
+      priorityHits: operation.priorityHits,
+      waveRespawn: operation.waveRespawn,
+      targetWaves: operation.targetWaves,
+      retreating: operation.retreating,
+      endReason: operation.endReason,
+      fighter: operation.fighter ? structuredClone(operation.fighter) : null,
+      prioritySchedule: structuredClone(operation.prioritySchedule),
+      threatEvents: structuredClone(operation.threatEvents),
+      effects: operation.effects.map(({ type, x, y, fromX, fromY, life }) => ({ type, x, y, fromX, fromY, life })),
+      priority: operation.priority ? structuredClone(operation.priority) : null,
+      targets: operation.targets.map(({ id, type, x, y, hp, maxHp, attackOrder }) => ({ id, type, x, y, hp, maxHp, attackOrder })),
+      aircraft: operation.aircraft.map(({ id, x, y, phase, altitude, heading, visualBank, integrity, hasBomb, assignedTargetId, priorityAssigned }) => ({ id, x, y, phase, altitude, heading, visualBank, integrity, hasBomb, assignedTargetId, priorityAssigned, visualSize: aircraftVisualSize(altitude) })),
+    } : null,
+  }),
+  setAircraftForTest: (count) => {
+    save.aircraft = Math.max(1, Math.floor(Number(count) || 1));
+    persist();
+    updateUI();
+  },
+  deploy,
+  returnToBase,
+  pause,
+  resume,
+  emergencyRetreat,
+  markPriority,
+  spawnPriorityForTest: () => {
+    if (!operation) return;
+    operation.prioritySpawned = true;
+    operation.priority = { x: 282, y: 170, radius: 26, life: 30, marked: false };
+    ui.priorityButton.hidden = false;
+  },
+  destroyTargetsForTest: () => {
+    if (!operation) return;
+    operation.targets.forEach((target) => { target.hp = 0; });
+    operation.waveRespawn = 20;
+    const plane = operation.aircraft.find((candidate) => candidate.phase !== "knocked");
+    if (plane) {
+      plane.x = 338;
+      plane.y = 164;
+      plane.altitude = 1;
+      plane.hasBomb = true;
+      plane.assignedTargetId = null;
+      changePhase(plane, "attackApproach");
+    }
+  },
+  rebuildTargetsForTest: () => {
+    if (!operation) return;
+    operation.targets.forEach((target) => { target.hp = 0; });
+    operation.waveRespawn = 0.01;
+    const plane = operation.aircraft.find((candidate) => candidate.phase !== "knocked");
+    if (plane) {
+      plane.x = 82;
+      plane.y = 220;
+      plane.altitude = 1;
+      plane.hasBomb = true;
+      plane.assignedTargetId = "soft-right";
+      changePhase(plane, "attackApproach");
+    }
+  },
+  spawnFighterForTest: () => {
+    if (!operation) return;
+    const plane = operation.aircraft.find((candidate) => !["ground", "taxiOut", "takeoffRoll", "landingRoll", "taxiIn", "knocked"].includes(candidate.phase));
+    if (!plane) return;
+    operation.fighter = {
+      x: plane.x - 55,
+      y: plane.y,
+      direction: 1,
+      speed: 112,
+      heading: 0,
+      phase: "attack",
+      targetId: plane.id,
+      fired: false,
+    };
+  },
+  triggerThreatForTest: (type) => {
+    if (!operation || !["rifle", "aa"].includes(type)) return;
+    const plane = operation.aircraft.find((candidate) => !["ground", "taxiOut", "takeoffRoll", "landingRoll", "taxiIn", "knocked"].includes(candidate.phase));
+    if (!plane) return;
+    const source = type === "rifle" ? TRENCH_RIFLE_POSITIONS[0] : AA_POSITIONS[0];
+    const amount = type === "rifle" ? TUNING.rifleDamageMin : TUNING.aaDamageMin;
+    damagePlane(plane, amount, type, source);
+  },
+  finishForTest: () => {
+    if (!operation) return;
+    if (operation.pendingBonds === 0) {
+      operation.pendingBonds = 24;
+      operation.sorties = 2;
+      operation.hits = 2;
+      operation.baseMedals = 3;
+      operation.destroyedTargets = 2;
+    }
+    finishOperation();
+  },
+  grantBondsForTest: (amount = 100) => {
+    if (!operation) return;
+    operation.pendingBonds += Math.max(0, Math.floor(Number(amount) || 0));
+    updateUI();
+  },
+  buySortieUpgrade,
+  simulateForTest: (seconds) => {
+    const steps = Math.ceil(Math.max(0, seconds) * 30);
+    for (let index = 0; index < steps && state === "playing"; index += 1) update(1 / 30);
+    render();
+    updateUI();
+    return state;
+  },
+};
+
+updateUI();
+resizeCanvas();
+requestAnimationFrame(frame);

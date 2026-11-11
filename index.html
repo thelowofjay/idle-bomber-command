@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#253631">
+    <meta name="description" content="A playable portrait prototype of Idle Bomber Command.">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
+    <link rel="preload" href="assets/game/battlefield-airfield-v3.webp" as="image">
+    <link rel="preload" href="assets/game/canvas-biplane-topdown.webp" as="image">
+    <link rel="preload" href="assets/game/bomber-lineup-main-menu.webp" as="image">
+    <link rel="preload" href="assets/game/hardened-bunker-topdown.webp" as="image">
+    <link rel="preload" href="assets/game/soft-emplacement-topdown.webp" as="image">
+    <link rel="stylesheet" href="styles.css">
+    <title>Idle Bomber Command</title>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="mission-bar">
+        <div class="currency-strip" aria-label="Currency balances">
+          <div class="currency-ledger">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 1 4 12.7V22l-4-2-4 2v-7.3A7 7 0 0 1 12 2m0 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8"/></svg>
+            <span>Medals</span>
+            <strong id="bankedMedals">0</strong>
+          </div>
+          <div class="currency-ledger">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h14v3c0 3-1.6 5.2-4.3 6.2V15H18v2h-5v2h4v2H7v-2h4v-2H6v-2h3.3v-2.8C6.6 11.2 5 9 5 6zm3 3c0 3.4 1.6 4.5 4 4.5s4-1.1 4-4.5zM3 5h2v4H3zm16 0h2v4h-2z"/></svg>
+            <span>Boss trophies</span>
+            <strong id="bankedTrophies">0</strong>
+          </div>
+          <button id="settingsAction" class="settings-action" type="button" aria-label="Open settings" aria-haspopup="dialog" aria-controls="settingsDialog">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 2 .6 2.3a8 8 0 0 1 3.8 0L14.5 2l3.2 1.8-1.7 1.7a8 8 0 0 1 1.9 3.3l2.3-.6v3.6l-2.3-.6a8 8 0 0 1-1.9 3.3l1.7 1.7-3.2 1.8-.6-2.3a8 8 0 0 1-3.8 0L9.5 18l-3.2-1.8L8 14.5a8 8 0 0 1-1.9-3.3l-2.3.6V8.2l2.3.6A8 8 0 0 1 8 5.5L6.3 3.8zm2.5 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6"/></svg>
+          </button>
+        </div>
+        <div class="identity-lockup">
+          <h1>Idle Bomber Command</h1>
+          <p id="operationLabel" class="sr-only">Operation 01 · Trench Network</p>
+        </div>
+      </header>
+
+      <main>
+        <section id="baseView" class="base-view" aria-labelledby="baseHeading">
+          <h2 id="baseHeading" class="sr-only">Main Menu</h2>
+          <div class="base-scene" role="img" aria-label="A chronological lineup of bomber aircraft parked across an airbase apron at dawn.">
+            <div class="base-command">
+              <section id="operationSelector" class="operation-selector" aria-labelledby="operationName">
+                <div class="operation-selector-heading">
+                  <span>Operation <strong id="baseOperationNumber">01</strong> of 11</span>
+                  <span id="operationLock">Available</span>
+                </div>
+                <div class="operation-selector-control">
+                  <button id="previousOperation" class="operation-arrow" type="button" aria-label="Previous operation">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15.4 5-7 7 7 7 1.4-1.4-5.6-5.6 5.6-5.6z"/></svg>
+                  </button>
+                  <div>
+                    <h3 id="operationName">Trench Network</h3>
+                    <p id="baseSummary">Broad soft targets · favors swarm coverage</p>
+                  </div>
+                  <button id="nextOperation" class="operation-arrow" type="button" aria-label="Next operation">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8.6 19 7-7-7-7-1.4 1.4 5.6 5.6-5.6 5.6z"/></svg>
+                  </button>
+                </div>
+                <div class="force-summary"><strong id="baseAircraftReadout">1 serviceable biplane</strong><span id="baseForceStats">Payload 8 · Integrity 70</span></div>
+              </section>
+              <section class="theater-selector" aria-labelledby="theaterHeading">
+                <div class="theater-heading"><span id="theaterHeading">Theater Operations</span><small>Not yet available</small></div>
+                <div class="theater-options">
+                  <button type="button" data-theater="Flak Front" aria-disabled="true"><span>Flak Front</span><strong>0 / 100</strong><small>Reduce ground anti-air</small></button>
+                  <button type="button" data-theater="Air-Superiority Front" aria-disabled="true"><span>Air-Superiority Front</span><strong>0 / 100</strong><small>Reduce enemy fighters</small></button>
+                </div>
+              </section>
+              <button id="deployAction" class="primary-action deploy-action" type="button">Deploy to Trench Network</button>
+            </div>
+          </div>
+
+          <nav class="department-dock" aria-label="Main menu departments">
+            <button id="requisitionsTab" class="dock-action" type="button" aria-haspopup="dialog" aria-controls="departmentDialog" data-department="requisitions">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 13 7-2V6l2-1 2 1v5l7 2v2l-7-1v3l3 2v1l-5-1-5 1v-1l3-2v-3l-7 1z"/></svg><span>Requisitions</span>
+            </button>
+            <button id="armoryTab" class="dock-action" type="button" aria-haspopup="dialog" aria-controls="departmentDialog" data-department="armory">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6v2h-1v5l5 8.5A3 3 0 0 1 16.4 22H7.6A3 3 0 0 1 5 17.5L10 9V4H9zm1.8 12-3 5h8.4l-3-5z"/></svg><span>Armory</span>
+            </button>
+            <button id="maintenanceTab" class="dock-action" type="button" aria-haspopup="dialog" aria-controls="departmentDialog" data-department="maintenance">
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4.5a4 4 0 0 0-5.4 5.4L3.5 15.5a2.1 2.1 0 0 0 3 3l5.6-5.6a4 4 0 0 0 5.4-5.4l-2.3 2.3-2.8-2.8z"/><path d="m14.5 3 2-2 5.5 5.5-2 2M18 6 8 16"/></svg><span>Maintenance</span>
+            </button>
+            <button id="flightOperationsTab" class="dock-action" type="button" aria-haspopup="dialog" aria-controls="departmentDialog" data-department="flightOperations">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21v-2h2V9l5-5 5 5v10h2v2zm5-2h4v-5h-4zm0-8h4V9.8l-2-2-2 2z"/></svg><span>Flight Ops</span>
+            </button>
+          </nav>
+        </section>
+
+        <section id="battleView" class="battle-view" hidden>
+          <section class="battle-card" aria-labelledby="battleHeading">
+            <h2 id="battleHeading" class="sr-only">Trench Network battlefield</h2>
+            <div class="canvas-wrap" id="canvasWrap">
+              <canvas id="gameCanvas" width="390" height="560" tabindex="0"
+                aria-label="Top-down farmland battlefield. A grass airfield is at the bottom, recognizable trench targets are at the top, and your biplanes fly repeated bombing sorties between them.">
+                Your browser does not support the game canvas.
+              </canvas>
+              <div id="statePlate" class="state-plate" aria-hidden="true">
+                <span id="stateCode">OPERATION HELD</span>
+                <strong id="stateTitle">Paused</strong>
+                <p id="stateMessage">The force is holding until you return.</p>
+              </div>
+              <div id="speedIndicator" class="speed-indicator" hidden>2× SPEED</div>
+              <button id="priorityButton" class="priority-button" type="button" hidden>
+                <span>Priority target exposed</span>
+                <strong>Mark target</strong>
+              </button>
+            </div>
+          </section>
+
+          <section class="command-deck" aria-label="Operation controls">
+            <div id="activeControls" class="active-controls">
+              <div class="readiness">
+                <span class="status-swatch" id="statusSwatch" aria-hidden="true"></span>
+                <div>
+                  <span id="statusLabel">Force airborne</span>
+                  <strong id="forceReadout">1/1 flying · 70 integrity</strong>
+                </div>
+              </div>
+              <div class="sortie-ledger">
+                <span>War bonds</span>
+                <strong id="pendingBonds">0</strong>
+              </div>
+              <button id="sortieUpgradesAction" class="secondary-action icon-action sortie-upgrades-action" type="button" aria-label="Open sortie upgrades" aria-haspopup="dialog" aria-controls="sortieDialog">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6v2h-1v5l5 8.5A3 3 0 0 1 16.4 22H7.6A3 3 0 0 1 5 17.5L10 9V4H9zm1.8 12-3 5h8.4l-3-5z"/></svg>
+                <span>Upgrades</span>
+              </button>
+              <button id="primaryAction" class="primary-action" type="button">Emergency retreat</button>
+              <button id="pauseAction" class="secondary-action icon-action" type="button" aria-label="Pause operation">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>
+                <span>Pause</span>
+              </button>
+            </div>
+          </section>
+        </section>
+      </main>
+
+      <dialog id="departmentDialog" class="department-dialog" aria-labelledby="departmentDialogTitle">
+        <div class="department-window">
+          <button id="closeDepartment" class="dialog-close" type="button" aria-label="Close department window">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4z"/></svg>
+          </button>
+          <h2 id="departmentDialogTitle">Requisitions</h2>
+          <p id="departmentDialogSummary">Commission aircraft with permanent medals.</p>
+          <div id="upgradeList" aria-label="Permanent force improvements">
+            <section id="requisitionsPanel" class="department-panel" aria-labelledby="requisitionsTab">
+              <div class="aircraft-detail">
+                <div class="aircraft-preview-stage"><img id="aircraftDetailSprite" src="assets/game/canvas-biplane-topdown.webp" alt="Top-down sprite of the Canvas Biplane"></div>
+                <span>Aircraft 01</span>
+                <h3>Old Trusty · Canvas Biplane</h3>
+                <p>It was supposed to be an observation plane, but we need a bomber, so we gave the pilot a grenade and told him to avoid too many bumps.</p>
+                <div class="aircraft-purchase-line"><strong id="aircraftOwnedReadout">1 in service</strong><button class="compact-purchase" type="button" data-purchase="aircraft"><b data-cost="aircraft">8 medals</b><small>Commission another</small></button></div>
+              </div>
+              <div class="aircraft-carousel swipe-rail" aria-label="Aircraft roster, swipe to browse">
+                <button class="aircraft-card is-available is-selected" type="button" aria-pressed="true"><span>Aircraft 01</span><strong>Canvas Biplane</strong><small>In service</small></button>
+                <button class="aircraft-card" type="button" data-locked="Early Monoplane" aria-disabled="true"><span>Aircraft 02</span><strong>Early Monoplane</strong><small>Locked</small></button>
+                <button class="aircraft-card" type="button" data-locked="Dive Bomber" aria-disabled="true"><span>Aircraft 03</span><strong>Dive Bomber</strong><small>Locked</small></button>
+                <button class="aircraft-card" type="button" data-locked="Medium Bomber" aria-disabled="true"><span>Aircraft 04</span><strong>Medium Bomber</strong><small>Locked</small></button>
+                <button class="aircraft-card" type="button" data-locked="Heavy Bomber" aria-disabled="true"><span>Aircraft 05</span><strong>Heavy Bomber</strong><small>Locked</small></button>
+                <button class="aircraft-card" type="button" data-locked="Superfortress" aria-disabled="true"><span>Aircraft 06</span><strong>Superfortress</strong><small>Locked</small></button>
+                <button class="aircraft-card" type="button" data-locked="Intercontinental Bomber" aria-disabled="true"><span>Aircraft 07</span><strong>Intercontinental Bomber</strong><small>Locked</small></button>
+                <button class="aircraft-card" type="button" data-locked="Strike Aircraft" aria-disabled="true"><span>Aircraft 08</span><strong>Strike Aircraft</strong><small>Locked</small></button>
+                <button class="aircraft-card" type="button" data-locked="Jet Bomber" aria-disabled="true"><span>Aircraft 09</span><strong>Jet Bomber</strong><small>Locked</small></button>
+                <button class="aircraft-card" type="button" data-locked="Stealth Attacker" aria-disabled="true"><span>Aircraft 10</span><strong>Stealth Attacker</strong><small>Locked</small></button>
+                <button class="aircraft-card" type="button" data-locked="Stealth Bomber" aria-disabled="true"><span>Aircraft 11</span><strong>Stealth Bomber</strong><small>Locked</small></button>
+              </div>
+            </section>
+            <section id="armoryPanel" class="department-panel" aria-labelledby="armoryTab" hidden>
+              <button class="aircraft-select is-selected" type="button" aria-pressed="true"><span>Selected aircraft</span><strong>Canvas Biplane</strong></button>
+              <button class="upgrade-row" type="button" data-purchase="payload"><span><strong>Heavier grenade rack</strong><small data-effect="payload">All biplanes · payload 8 → 11</small></span><b data-cost="payload">3 medals</b></button>
+            </section>
+            <section id="maintenancePanel" class="department-panel" aria-labelledby="maintenanceTab" hidden>
+              <button class="aircraft-select is-selected" type="button" aria-pressed="true"><span>Selected aircraft</span><strong>Canvas Biplane</strong></button>
+              <button class="upgrade-row" type="button" data-purchase="armor"><span><strong>Patch and reinforce canvas</strong><small data-effect="armor">All biplanes · integrity 70 → 84</small></span><b data-cost="armor">3 medals</b></button>
+              <button class="upgrade-row" type="button" data-purchase="speed"><span><strong>Upgrade engine</strong><small data-effect="speed">All biplanes · speed 26 → 29</small></span><b data-cost="speed">4 medals</b></button>
+            </section>
+            <section id="flightOperationsPanel" class="department-panel" aria-labelledby="flightOperationsTab" hidden>
+              <p class="department-note">Airfield-wide training applies to every aircraft.</p>
+              <button class="upgrade-row" type="button" data-purchase="turnaround"><span><strong>Ground-crew launch drill</strong><small data-effect="turnaround">All biplanes · turnaround 2.8s → 2.4s</small></span><b data-cost="turnaround">2 medals</b></button>
+            </section>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog id="sortieDialog" class="sortie-dialog" aria-labelledby="requisitionHeading">
+        <div class="sortie-window">
+          <button id="closeSortieUpgrades" class="dialog-close" type="button" aria-label="Close sortie upgrades">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4z"/></svg>
+          </button>
+          <div class="requisition-heading">
+            <h2 id="requisitionHeading">Sortie Upgrades</h2>
+            <span>Temporary · this mission</span>
+          </div>
+          <p>Use war bonds earned from bomb drops. Every upgrade and unspent bond expires at debrief.</p>
+          <div id="sortieUpgradeList" class="sortie-upgrade-list">
+            <button class="sortie-upgrade" type="button" data-sortie-purchase="payload">
+              <span><strong>Extra grenade rack</strong><small data-sortie-effect="payload">Payload 8 → 10</small></span>
+              <b data-sortie-cost="payload">12 bonds</b>
+            </button>
+            <button class="sortie-upgrade" type="button" data-sortie-purchase="armor">
+              <span><strong>Field armor patches</strong><small data-sortie-effect="armor">Integrity 70 → 80</small></span>
+              <b data-sortie-cost="armor">10 bonds</b>
+            </button>
+            <button class="sortie-upgrade" type="button" data-sortie-purchase="turnaround">
+              <span><strong>Priority servicing</strong><small data-sortie-effect="turnaround">Turnaround 2.8s → 2.5s</small></span>
+              <b data-sortie-cost="turnaround">8 bonds</b>
+            </button>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog id="settingsDialog" class="settings-dialog" aria-labelledby="settingsDialogTitle">
+        <div class="settings-window">
+          <button id="closeSettings" class="dialog-close" type="button" aria-label="Close settings">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4z"/></svg>
+          </button>
+          <h2 id="settingsDialogTitle">Settings</h2>
+          <p>Field controls and test-progress management.</p>
+          <div class="settings-list">
+            <label><span><strong>Sound cues</strong><small>Aircraft and battlefield audio</small></span><input id="soundToggle" type="checkbox" checked></label>
+            <label><span><strong>Reduce effects</strong><small>Limit flashes and screen motion</small></span><input id="effectsToggle" type="checkbox"></label>
+            <label><span><strong>2× sortie speed</strong><small>Double aircraft, threats, timers, and income</small></span><input id="speedToggle" type="checkbox"></label>
+          </div>
+          <button id="resetSave" class="reset-action" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a8 8 0 1 1-7.4 5H2l3.5-4L9 9H6.7A6 6 0 1 0 12 6z"/></svg>
+            <span><strong>Reset test progress</strong><small>Clear medals, trophies, aircraft, upgrades, and operations</small></span>
+          </button>
+        </div>
+      </dialog>
+
+      <dialog id="debriefDialog" class="debrief-dialog" aria-labelledby="debriefTitle">
+        <div class="debrief-window">
+          <button id="closeDebriefIcon" class="dialog-close" type="button" aria-label="Close debrief and return to the airfield">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4z"/></svg>
+          </button>
+          <div class="debrief-heading">
+            <div>
+              <span>Operation complete</span>
+              <h2 id="debriefTitle">Field debrief</h2>
+            </div>
+            <div class="debrief-total"><span>Medals</span><strong id="debriefEarned">+0</strong></div>
+          </div>
+          <p id="debriefSummary">The flight completed 0 attack runs.</p>
+          <dl class="debrief-record">
+            <div><dt>Sorties completed</dt><dd id="debriefSorties">0</dd></div>
+            <div><dt>Targets destroyed</dt><dd id="debriefTargets">0</dd></div>
+            <div><dt>Aircraft knocked out</dt><dd id="debriefLost">0</dd></div>
+            <div><dt>Aircraft recovered</dt><dd id="debriefRecovered">1</dd></div>
+            <div><dt>Survival bonus</dt><dd id="debriefSurvival">+0 (0%)</dd></div>
+          </dl>
+          <p class="recovery-note">Aircraft are recovered after every operation. Knocked out does not mean permanently lost.</p>
+          <button id="closeDebrief" class="primary-action" type="button">Return to Main Menu</button>
+        </div>
+      </dialog>
+
+      <footer class="key-guide" aria-label="Keyboard controls">
+        <span><kbd>Space</kbd> pause / resume</span>
+        <span><kbd>1</kbd> priority target</span>
+        <span><kbd>R</kbd> deploy from airfield</span>
+      </footer>
+    </div>
+    <div id="announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+    <script type="module" src="game.js"></script>
+  </body>
+</html>

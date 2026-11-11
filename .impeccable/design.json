@@ -1,0 +1,260 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-09T00:08:00Z",
+  "title": "Design System: Idle Bomber Command",
+  "extensions": {
+    "colorMeta": {
+      "paper": {
+        "role": "neutral",
+        "displayName": "Bleached Paper",
+        "tonalRamp": ["#332f24", "#544d3b", "#766c52", "#9a8e6f", "#bfb28e", "#d9cba8", "#efe5c8", "#fbf7e9"]
+      },
+      "paper-deep": {
+        "role": "neutral",
+        "displayName": "Deep Paper",
+        "tonalRamp": ["#302c22", "#504937", "#70664c", "#918568", "#b1a480", "#c8ba94", "#d9c99f", "#f5edda"]
+      },
+      "paper-action": {
+        "role": "neutral",
+        "displayName": "Action Paper",
+        "tonalRamp": ["#332f22", "#574f38", "#7b704e", "#a19468", "#c8b984", "#e8d9a9", "#fff8e8", "#fffdf7"]
+      },
+      "paper-muted": {
+        "role": "neutral",
+        "displayName": "Muted Paper Type",
+        "tonalRamp": ["#293028", "#465045", "#626f60", "#82907e", "#a5b19f", "#c0cbb9", "#d5ddcf", "#f1f4ef"]
+      },
+      "panel-warm": {
+        "role": "neutral",
+        "displayName": "Warm Panel Paper",
+        "tonalRamp": ["#312d22", "#514a38", "#71664c", "#938568", "#b5a681", "#cec09a", "#e4d8b8", "#f8f0dc"]
+      },
+      "panel-disabled": {
+        "role": "neutral",
+        "displayName": "Disabled Panel Paper",
+        "tonalRamp": ["#312e25", "#514c3e", "#706a56", "#928a70", "#b4ab8c", "#cec5a7", "#e8dfc7", "#f8f4e7"]
+      },
+      "dusty-sky": {
+        "role": "secondary",
+        "displayName": "Dusty Sky Blue",
+        "tonalRamp": ["#1f3034", "#344d53", "#496b73", "#608a94", "#79a0aa", "#94b7c2", "#bcd2d4", "#e7efef"]
+      },
+      "dusty-sky-light": {
+        "role": "secondary",
+        "displayName": "Pale Sky Wash",
+        "tonalRamp": ["#223033", "#394c50", "#52696e", "#6e888d", "#8ea7ab", "#a7c0c3", "#bcd2d4", "#eaf0f0"]
+      },
+      "graphite": {
+        "role": "neutral",
+        "displayName": "Graphite Ink",
+        "tonalRamp": ["#101815", "#17221f", "#293632", "#46534c", "#657169", "#8e9991", "#c3cbc5", "#f0f3f0"]
+      },
+      "graphite-soft": {
+        "role": "neutral",
+        "displayName": "Soft Graphite",
+        "tonalRamp": ["#151b18", "#29322d", "#46534c", "#626f68", "#7f8c84", "#a2ada6", "#cbd2cd", "#f2f4f2"]
+      },
+      "field-olive": {
+        "role": "secondary",
+        "displayName": "Field Olive",
+        "tonalRamp": ["#202319", "#373c29", "#50583b", "#66704b", "#838d68", "#a4ad89", "#cbd0b5", "#f0f2e8"]
+      },
+      "field-dark": {
+        "role": "secondary",
+        "displayName": "Dark Field Green",
+        "tonalRamp": ["#171d18", "#273129", "#39463b", "#526053", "#6f7c70", "#96a098", "#c5cbc6", "#f0f2f0"]
+      },
+      "hangar-olive": {
+        "role": "secondary",
+        "displayName": "Hangar Olive",
+        "tonalRamp": ["#222318", "#3a3c29", "#53553a", "#6d7048", "#8b8e64", "#acad87", "#d0d0b2", "#f2f2e6"]
+      },
+      "signal-vermilion": {
+        "role": "primary",
+        "displayName": "Signal Vermilion",
+        "tonalRamp": ["#321410", "#541d17", "#7d241c", "#a7372b", "#c95849", "#df8072", "#efb9b1", "#fae8e5"]
+      },
+      "signal-dark": {
+        "role": "primary",
+        "displayName": "Deep Signal Vermilion",
+        "tonalRamp": ["#2c110d", "#4a1914", "#672019", "#7d241c", "#a13f34", "#c66a5e", "#e6aaa2", "#f8e5e1"]
+      },
+      "warning-amber": {
+        "role": "tertiary",
+        "displayName": "Warning Amber",
+        "tonalRamp": ["#33230b", "#574015", "#7b5c1c", "#9f7120", "#cc8a24", "#dda64f", "#edcc96", "#faf0d9"]
+      },
+      "focus-straw": {
+        "role": "tertiary",
+        "displayName": "Focus Straw",
+        "tonalRamp": ["#312f1d", "#55512d", "#7b743d", "#a29a54", "#c9bf70", "#e7dc8d", "#fff4b5", "#fffbea"]
+      },
+      "rule-graphite": {
+        "role": "neutral",
+        "displayName": "Rule Graphite",
+        "canonical": "rgba(23, 34, 31, 0.22)",
+        "tonalRamp": ["rgba(23,34,31,.88)", "rgba(23,34,31,.72)", "rgba(23,34,31,.56)", "rgba(23,34,31,.42)", "rgba(23,34,31,.30)", "rgba(23,34,31,.22)", "rgba(23,34,31,.12)", "rgba(23,34,31,.06)"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Field State", "purpose": "Large ready, paused, and operation-state titles." },
+      "headline": { "displayName": "Debrief Headline", "purpose": "Operation outcomes and debrief headings." },
+      "title": { "displayName": "Command Title", "purpose": "Game identity and compact primary titles." },
+      "body": { "displayName": "Field Copy", "purpose": "Principally 12px mixed-case explanations, summaries, and settings." },
+      "label": { "displayName": "Recognition Label", "purpose": "Principally 11px uppercase departments, ledgers, field codes, and control captions." }
+    },
+    "shadows": [
+      { "name": "shell-ambient", "value": "0 20px 70px rgba(0, 0, 0, 0.38)", "purpose": "Separates the bounded application shell from the dark field surround." },
+      { "name": "debrief-ambient", "value": "0 24px 70px rgba(0, 0, 0, 0.42)", "purpose": "Separates the temporary paper debrief from its modal backdrop." },
+      { "name": "airfield-status-lift", "value": "0 8px 20px rgba(23, 34, 31, 0.22)", "purpose": "Keeps the serviceability label legible over the Forward Airfield plate." },
+      { "name": "priority-lift", "value": "0 8px 20px rgba(23, 34, 31, 0.28)", "purpose": "Lifts the time-limited priority action above the battlefield." },
+      { "name": "command-lift", "value": "0 6px 14px rgba(125, 36, 28, 0.22)", "purpose": "Adds restrained tactile depth to primary vermilion controls." }
+    ],
+    "motion": [
+      { "name": "state-plate-fade", "value": "opacity 220ms ease-out", "purpose": "Reveals or clears ready and paused state plates without obscuring operation state." },
+      { "name": "aircraft-heading-turn", "value": "2π/3 rad/s (120°/s) via turnToward", "purpose": "Continuously interpolates airborne headings and visible bank toward movement vectors while ground phases remain level." },
+      { "name": "ground-launch-stagger", "value": "2.05s per aircraft index", "purpose": "Offsets initial taxi-out and eastbound takeoff rolls so multiple aircraft remain visibly separated." },
+      { "name": "reduced-motion", "value": "0.001ms; 1 iteration", "purpose": "Collapses CSS transitions and animations when reduced motion is requested." }
+    ],
+    "breakpoints": [
+      { "name": "desktop-split", "value": "820px" }
+    ],
+    "rasterAssets": [
+      { "path": "assets/game/airfield-base.webp", "role": "Forward Airfield hub cover plate", "source": "assets/game/airfield-base.png", "prompt": "assets/prompts/airfield-base.txt", "provenance": "assets/game/airfield-base.webp.json" },
+      { "path": "assets/game/battlefield-airfield-v2.webp", "role": "390×560 battlefield and disciplined airfield plate with tent-free lower-right parking apron and left-streaming windsock", "source": "assets/game/battlefield-airfield-v2.png", "prompt": "assets/prompts/battlefield-airfield-v2.txt", "provenance": "assets/game/battlefield-airfield-v2.webp.json" },
+      { "path": "assets/game/canvas-biplane-topdown.webp", "role": "Transparent runtime aircraft sprite rendered from 18px ground scale to 40px cruise scale and shrunk on final", "source": "assets/game/canvas-biplane-topdown.png", "prompt": "assets/prompts/canvas-biplane-topdown.txt", "provenance": "assets/game/canvas-biplane-topdown.webp.json" },
+      { "path": "assets/game/soft-emplacement-topdown.webp", "role": "Terrain-matched 16-HP soft-emplacement sprite used three times across the lower target row", "source": "assets/game/soft-emplacement-topdown.png", "prompt": "assets/prompts/soft-emplacement-topdown.txt", "provenance": "assets/game/soft-emplacement-topdown.webp.json" },
+      { "path": "assets/game/hardened-bunker-topdown.webp", "role": "Terrain-matched 64-HP hardened-bunker sprite used twice across the upper target row", "source": "assets/game/hardened-bunker-topdown.png", "prompt": "assets/prompts/hardened-bunker-topdown.txt", "provenance": "assets/game/hardened-bunker-topdown.webp.json" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Command Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The unmistakable full-width deployment or Emergency Retreat command; Pause / Resume remains a separate dark control.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\">EMERGENCY RETREAT</button>",
+      "css": ".ds-btn-primary { min-height: 50px; padding: 10px 14px; color: #fff8e8; background: var(--signal); border: 0; border-radius: 10px; box-shadow: 0 6px 14px rgba(125,36,28,.22); font: 800 13px 'Barlow Condensed','Arial Narrow',sans-serif; letter-spacing: .035em; text-transform: uppercase; cursor: pointer; } .ds-btn-primary:hover { background: var(--signal-dark); } .ds-btn-primary:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }"
+    },
+    {
+      "name": "Department Tab",
+      "kind": "nav",
+      "refersTo": "department-tab",
+      "description": "One half of the Forward Airfield department switcher; the filled state identifies the active workshop.",
+      "html": "<nav class=\"ds-departments\" aria-label=\"Airfield departments\"><button class=\"ds-department is-active\" aria-selected=\"true\">AIRCRAFT MAINTENANCE</button><button class=\"ds-department\" aria-selected=\"false\">ENGINEERING OFFICE</button></nav>",
+      "css": ".ds-departments { display:grid; grid-template-columns:1fr 1fr; gap:7px; width:100%; } .ds-department { min-height:52px; padding:8px 10px; color:var(--ink); background:var(--paper-deep); border:0; border-radius:10px; font:700 11px/1.05 'Barlow Condensed','Arial Narrow',sans-serif; text-align:left; text-transform:uppercase; cursor:pointer; } .ds-department.is-active { color:var(--paper); background:var(--field-dark); } .ds-department:focus-visible { outline:3px solid var(--focus); outline-offset:3px; }"
+    },
+    {
+      "name": "Pause / Resume Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "A recognizable labeled dark transport control with a 50px touch target, deliberately separate from the large vermilion Emergency Retreat command.",
+      "html": "<button class=\"ds-btn-pause\" type=\"button\" aria-label=\"Pause operation\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M6 5h4v14H6zm8 0h4v14h-4z\"/></svg><span>PAUSE</span></button>",
+      "css": ".ds-btn-pause { min-width: 50px; min-height: 50px; padding: 4px; display: grid; place-items: center; gap: 1px; color: var(--paper); background: var(--field-dark); border: 0; border-radius: 10px; font: 400 11px 'Barlow Condensed','Arial Narrow',sans-serif; text-transform: uppercase; cursor: pointer; } .ds-btn-pause svg { width: 17px; height: 17px; fill: currentColor; } .ds-btn-pause:hover { background: var(--field-dark); } .ds-btn-pause:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }"
+    },
+    {
+      "name": "Priority Target Action",
+      "kind": "button",
+      "refersTo": "priority-action",
+      "description": "A temporary stacked alert/action control centered over the battlefield.",
+      "html": "<button class=\"ds-priority\" type=\"button\"><span>PRIORITY TARGET EXPOSED</span><strong>MARK TARGET</strong></button>",
+      "css": ".ds-priority { min-width: 220px; min-height: 50px; padding: 8px 16px; color: var(--paper); background: var(--signal-dark); border: 2px solid var(--paper); border-radius: 10px; box-shadow: 0 8px 20px rgba(23,34,31,.28); font-family: 'Barlow Condensed','Arial Narrow',sans-serif; text-transform: uppercase; cursor: pointer; } .ds-priority span, .ds-priority strong { display: block; } .ds-priority span { font-size: 11px; letter-spacing: .09em; } .ds-priority strong { margin-top: 2px; font-size: 14px; } .ds-priority:hover { background: var(--signal-dark); } .ds-priority:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }"
+    },
+    {
+      "name": "Upgrade Card",
+      "kind": "card",
+      "refersTo": "upgrade-card",
+      "description": "A full-row purchase choice grouping title, effect, and bond cost.",
+      "html": "<button class=\"ds-upgrade\" type=\"button\"><span><strong>HEAVIER GRENADES</strong><small>Payload 8 → 11</small></span><b>12 BONDS</b></button>",
+      "css": ".ds-upgrade { min-height: 59px; width: 100%; padding: 8px 9px; display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--ink); background: #e4d8b8; border: 0; border-radius: 10px; text-align: left; font-family: 'Barlow Condensed','Arial Narrow',sans-serif; cursor: pointer; } .ds-upgrade span, .ds-upgrade strong, .ds-upgrade small { display: block; } .ds-upgrade strong, .ds-upgrade small { font-size: 11px; } .ds-upgrade small { margin-top: 2px; color: var(--ink); line-height:1.2; } .ds-upgrade b { flex: 0 0 44px; color: var(--signal-dark); font-size: 11px; line-height: 1.15; text-align: right; } .ds-upgrade:hover:not(:disabled) { background: var(--paper-deep); } .ds-upgrade:disabled { color:#525b50; background:#e8dfc7; outline:1px dashed rgba(23,34,31,.28); cursor:not-allowed; } .ds-upgrade:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }"
+    },
+    {
+      "name": "Sortie Ledger",
+      "kind": "card",
+      "description": "A compact tabular readout for unbanked operation earnings.",
+      "html": "<div class=\"ds-ledger\"><span>UNBANKED</span><strong>+24</strong></div>",
+      "css": ".ds-ledger { min-width: 56px; padding: 5px 6px 4px; color: var(--ink); background: var(--paper-deep); border-radius: 8px; text-align: right; font-family: 'Barlow Condensed','Arial Narrow',sans-serif; font-variant-numeric: tabular-nums; } .ds-ledger span { display: block; color: var(--ink-soft); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; } .ds-ledger strong { display: block; margin-top: 3px; font-size: 16px; }"
+    },
+    {
+      "name": "Aircraft Recognition Tag",
+      "kind": "custom",
+      "description": "The compact 43×14px KITE-series call-sign tag attached above 0.65 altitude; it stays hidden near the runway to protect aircraft recognition.",
+      "html": "<div class=\"ds-flight-tag\">K-01</div>",
+      "css": ".ds-flight-tag { width: 43px; height: 14px; padding: 0 3px 0 7px; display: flex; align-items: center; color: var(--ink); background: rgba(239,229,200,.94); border-left: 3px solid var(--signal); font: 700 8px/1 'Barlow Condensed','Arial Narrow',sans-serif; text-transform: uppercase; }"
+    },
+    {
+      "name": "Forward Airfield Status",
+      "kind": "custom",
+      "description": "The serviceability plate anchored over the authored Forward Airfield hub image.",
+      "html": "<div class=\"ds-airfield-status\"><span>FORWARD AIRFIELD</span><strong>1 serviceable biplane</strong></div>",
+      "css": ".ds-airfield-status { padding:9px 12px; color:var(--paper); background:rgba(23,34,31,.88); border-radius:8px; box-shadow:0 8px 20px rgba(23,34,31,.22); font-family:'Barlow Condensed','Arial Narrow',sans-serif; } .ds-airfield-status span,.ds-airfield-status strong { display:block; } .ds-airfield-status span { font-size:11px; letter-spacing:.11em; text-transform:uppercase; } .ds-airfield-status strong { margin-top:2px; font-size:14px; }"
+    },
+    {
+      "name": "Temporary Field Debrief",
+      "kind": "custom",
+      "refersTo": "debrief-dialog",
+      "description": "A temporary modal operation record that dismisses back to the Forward Airfield.",
+      "html": "<section class=\"ds-debrief\" role=\"dialog\" aria-labelledby=\"ds-debrief-title\"><button class=\"ds-debrief-close\" aria-label=\"Close debrief\">×</button><span>OPERATION COMPLETE</span><h2 id=\"ds-debrief-title\">FIELD DEBRIEF</h2><dl><div><dt>SORTIES COMPLETED</dt><dd>4</dd></div><div><dt>TARGETS HIT</dt><dd>3</dd></div></dl><button class=\"ds-debrief-return\">RETURN TO FORWARD AIRFIELD</button></section>",
+      "css": ".ds-debrief { position:relative; width:min(calc(100% - 24px),420px); padding:22px; color:var(--ink); background:var(--paper); border-radius:14px; box-shadow:0 24px 70px rgba(0,0,0,.42); font-family:'Barlow Condensed','Arial Narrow',sans-serif; } .ds-debrief>span { color:var(--ink-soft); font-size:11px; letter-spacing:.11em; } .ds-debrief h2 { margin:2px 0 16px; font-size:24px; line-height:1; } .ds-debrief dl { border-block:1px solid rgba(23,34,31,.22); } .ds-debrief dl div { min-height:38px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(23,34,31,.22); } .ds-debrief dl div:last-child { border:0; } .ds-debrief dt { color:var(--ink-soft); font-size:11px; letter-spacing:.06em; } .ds-debrief dd { margin:0; font-size:17px; font-weight:800; } .ds-debrief-close { position:absolute; top:10px; right:10px; width:44px; height:44px; color:var(--ink); background:transparent; border:0; border-radius:10px; font-size:22px; cursor:pointer; } .ds-debrief-close:hover { background:var(--paper-deep); } .ds-debrief-return { width:100%; min-height:50px; margin-top:14px; color:#fff8e8; background:var(--signal); border:0; border-radius:10px; font-weight:800; text-transform:uppercase; cursor:pointer; } .ds-debrief-return:hover { background:var(--signal-dark); } .ds-debrief button:focus-visible { outline:3px solid var(--focus); outline-offset:3px; }"
+    },
+    {
+      "name": "Field Settings Disclosure",
+      "kind": "nav",
+      "description": "A standard disclosure row for low-frequency settings.",
+      "html": "<details class=\"ds-settings\"><summary>FIELD SETTINGS</summary><label><input type=\"checkbox\" checked> SOUND CUES</label></details>",
+      "css": ".ds-settings { width: 260px; color: var(--ink-soft); border-top: 1px solid rgba(23,34,31,.22); font-family: 'Barlow Condensed','Arial Narrow',sans-serif; } .ds-settings summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; } .ds-settings summary::marker { content: ''; } .ds-settings summary::after { content: '+'; margin-left: auto; font-size: 18px; } .ds-settings[open] summary::after { content: '−'; } .ds-settings label { min-height: 44px; display: flex; align-items: center; gap: 6px; color: var(--ink); font-size: 11px; } .ds-settings input { width: 19px; height: 19px; accent-color: var(--signal); } .ds-settings summary:focus-visible, .ds-settings input:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }"
+    },
+    {
+      "name": "Reset Test Progress",
+      "kind": "button",
+      "description": "A visible Forward Airfield utility row for clearing prototype progress, always protected by native confirmation.",
+      "html": "<button class=\"ds-reset\" type=\"button\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M12 4a8 8 0 1 1-7.4 5H2l3.5-4L9 9H6.7A6 6 0 1 0 12 6z\"/></svg><span><strong>RESET TEST PROGRESS</strong><small>Clear bonds, aircraft, upgrades, and operations</small></span></button>",
+      "css": ".ds-reset { width:100%; min-height:48px; padding:7px 0; display:flex; align-items:center; gap:9px; color:var(--signal-dark); background:transparent; border:0; border-top:1px solid var(--rule); text-align:left; cursor:pointer; } .ds-reset svg { width:20px; height:20px; flex:0 0 auto; fill:currentColor; } .ds-reset span,.ds-reset strong,.ds-reset small { display:block; } .ds-reset strong { font-size:12px; letter-spacing:.035em; } .ds-reset small { margin-top:2px; color:var(--ink-soft); font-size:11px; } .ds-reset:focus-visible { outline:3px solid var(--focus); outline-offset:3px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Forward Airfield Operations Board",
+    "overview": "The shipped prototype is an operable Forward Airfield rather than an abstract idle dashboard. A realistic authored hangar plate establishes the owned aircraft and its working environment before numbers appear; Maintenance and the Engineering Office then turn upgrades into believable departments within that place. Deployment exchanges the warm airfield for the authored `battlefield-airfield-v2` terrain plate, disciplined runway operations, two compact airborne circuits, and KITE-series aircraft recognition tags.\n\nThe material system combines khaki dispatch paper, field-painted green, graphite plotting ink, and sparing signal vermilion with standard web controls. The visual fiction never obscures state: active tabs are filled, unavailable purchases are disabled and outlined, five terrain-matched targets communicate only through their physical sprites and health bars, Emergency Retreat is visually dominant, Pause / Resume remains separate, and both retreat recovery and combat debrief are temporary states on the route back to the Forward Airfield.",
+    "keyCharacteristics": [
+      "A recognizable Forward Airfield hub with Maintenance and Engineering departments.",
+      "Realistic authored airfield, battlefield, aircraft, soft-emplacement, and hardened-bunker raster assets as the main atmosphere.",
+      "A 390×560 battlefield world with separate center-departure and hangar-side arrival access, right-half eastbound departures, left-half recoveries, loaded and empty airborne circuits, banked 120-degree turns confined to flight, restrained attributable threats, and compact KITE call-sign tags.",
+      "Self-hosted Barlow Condensed across display, body, labels, and tabular operation numerals.",
+      "Khaki paper, dark field green, graphite, dusty sky, and sparing signal vermilion.",
+      "Standard controls, 44px-or-larger targets, explicit states, and interruption-safe behavior."
+    ],
+    "rules": [
+      { "name": "The Signal Discipline Rule", "body": "Vermilion marks an action, alert, priority, or failure; it is not a general-purpose decoration.", "section": "colors" },
+      { "name": "The Meaning Beyond Color Rule", "body": "Every color state is paired with a label, fill change, shape, disabled state, or announcement.", "section": "colors" },
+      { "name": "The One Workhorse Rule", "body": "Use the shipped self-hosted Barlow Condensed weights (400, 600, 700, 800); hierarchy comes from role and weight, not extra font families.", "section": "typography" },
+      { "name": "The Numeral Rule", "body": "Operation, timing, bond, and sortie figures use tabular numerals wherever changing widths could disturb scanning.", "section": "typography" },
+      { "name": "The Place-Before-Ledger Rule", "body": "At the base, show the Forward Airfield plate and serviceable force before exposing purchasing controls; in battle, preserve the 390×560 top-trench/bottom-airfield world before adding overlays.", "section": "layout" },
+      { "name": "The Restrained Lift Rule", "body": "Shadows clarify containment or urgency; routine cards and ledgers stay flat and separate through tone.", "section": "elevation" },
+      { "name": "The Recognition Geometry Rule", "body": "Curves belong to operable containers, target markers, and physical aircraft motion; aircraft silhouettes, field labels, health bars, and recognition-tag leaders stay clipped and technical.", "section": "shapes" }
+    ],
+    "dos": [
+      "Do keep every interactive target at least 44px in one dimension; primary, pause, and priority controls ship at 50px or more.",
+      "Do pair color with words, icons, fill, shape, or live-region announcements for readiness, damage, loss, priority, and disabled states.",
+      "Do retain standard button, checkbox, disclosure, focus, keyboard, and confirmation behaviors.",
+      "Do honor `prefers-reduced-motion` and the in-game Reduce Effects setting; the latter removes transient canvas effects without removing state information.",
+      "Do preserve keyboard controls and polite screen-reader announcements for major operation changes.",
+      "Do keep Maintenance and Engineering as visibly distinct, labeled departments within the same Forward Airfield hub.",
+      "Do preserve the center x=236 departure access, eastbound right-half departures, left-half arrival roll to x=156, separate hangar-side curved exit, 2.05-second launch staggering, continuous 2π/3-radian-per-second airborne heading turns with visible bank, level ground movement, the loaded inner holding circuit, the empty diagonal return, physical target overflight, and one-strike return behavior.",
+      "Do keep integrity loss attributable through brief rifle, anti-air, or enemy-fighter source tracers without large aircraft-centered hit markers; use the recognizable darkened biplane planform for fighter sweeps, vary natural priority timing and position, and keep the confirmed reset action visible on the Forward Airfield.",
+      "Do keep the target position to three 16-HP soft emplacements below two 64-HP bunkers, unnamed and identified through terrain-matched silhouettes plus health bars only.",
+      "Do rebuild only after all five targets are down and divert the closest loaded airborne aircraft to a marked priority target.",
+      "Do preserve sibling JSON provenance, the prompt source, and the retained PNG whenever a runtime WebP is replaced."
+    ],
+    "donts": [
+      "Don't turn the shell into a generic dark command-center dashboard, decorative gauge cluster, or neon sci-fi HUD.",
+      "Don't use real-world nationalist, extremist, or militarist insignia as atmosphere or ornament.",
+      "Don't spend vermilion on passive decoration or rely on it as the only state cue.",
+      "Don't replace recognizable controls with ambiguous custom gestures or icon-only interactions.",
+      "Don't merge Emergency Retreat with Pause / Resume or give the pause control equal vermilion command weight.",
+      "Don't turn the debrief into a persistent third screen; it is a temporary modal record between battle and the Forward Airfield.",
+      "Don't reintroduce dashed aircraft route traces; movement is communicated by the aircraft and its continuous heading changes.",
+      "Don't restore tents, reverse the left-streaming windsock, or replace the lower-right packed-earth apron in the authored battlefield plate.",
+      "Don't substitute generic gradients or CSS scenery for the authored airfield, battlefield, aircraft, emplacement, and bunker assets."
+    ]
+  }
+}

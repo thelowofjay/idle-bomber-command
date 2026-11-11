@@ -1,0 +1,10 @@
+Use case: historical-scene game main-menu hero artwork
+Asset type: wide responsive main-menu background
+Primary request: a chronological apron lineup showing the aircraft progression from canvas biplane through near-future stealth bomber
+Scene/backdrop: a broad forward-airbase apron at muted golden dawn with desaturated olive hangars, distant mountains, small anonymous ground-crew figures, and restrained brass sunlight
+Subject: eleven fictionalized, mechanically plausible bomber and strike-aircraft silhouettes progressing from canvas biplane, early monoplane, dive bomber, twin-engine medium bomber, four-engine heavy bomber, long-span strategic bomber, swept strike jet, strategic jet bomber, angular stealth attacker, flying-wing stealth bomber, and near-future flying-wing bomber
+Style/medium: cinematic digital painting with premium strategy-game painterly realism rather than photorealism
+Composition/framing: wide 3:2; lineup across the middle 60%; calm upper-center sky for live title overlay; safe for center-crop and mobile cover
+Lighting/mood: warm dawn, industrious, calm, aspirational
+Color palette: dusty khaki, desaturated olive, warm brass, charcoal clouds
+Constraints: no combat, explosions, flags, national markings, real-world insignia, extremist symbols, readable text, logos, UI, border, or watermark

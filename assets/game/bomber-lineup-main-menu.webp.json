@@ -1,0 +1,8 @@
+{
+  "promptFile": "assets/prompts/bomber-lineup-main-menu.txt",
+  "source": "OpenAI built-in image generation",
+  "sourceImage": "/home/klwilsn4/.openclaw/agents/main/agent/codex-home/generated_images/01a1bebd-b108-74c1-9688-b4ba6435f99d/exec-82b2884e-60ab-479d-9cd4-1d140a97bca7.png",
+  "createdAt": "2026-11-09T23:58:00Z",
+  "dimensions": "1536x1024",
+  "notes": "Fictionalized aircraft silhouettes; no national markings or readable text. Converted to WebP quality 86 for runtime use."
+}
