@@ -1,11 +1,11 @@
 const CATEGORIES = [
-  ["Biplane engine", "Continuous airborne character", [["Canvas Chug", "uneven low piston rhythm", "engineA"], ["Rotary Rattle", "brighter vintage rotary pulse", "engineB"], ["Distant Formation", "soft layered squadron bed", "engineC"]]],
-  ["Grenade drop", "Release, fall, and impact as one preview", [["Pin & Tumble", "metal pin, airy fall, dirt impact", "grenadeA"], ["Canvas Toss", "soft release with chunky blast", "grenadeB"], ["Field Pop", "short fall and restrained report", "grenadeC"]]],
-  ["Ground gunfire", "Rifle and anti-air attack cues", [["Dry Rifle", "single sharp trench crack", "gunA"], ["AA Burst", "three heavier mechanical shots", "gunB"], ["Distant Battery", "muffled report with tail", "gunC"]]],
-  ["Enemy aircraft", "Hostile fighter arrival and pass", [["Incoming Whine", "rising propeller warning", "enemyA"], ["Fast Flyby", "quick doppler-like sweep", "enemyB"], ["Hunter Drone", "dark sustained pursuit tone", "enemyC"]]],
-  ["Aircraft crash", "Loss cue without cartoon excess", [["Canvas Tear", "rip, impact, and debris", "crashA"], ["Engine Failure", "descending motor into thud", "crashB"], ["Hard Landing", "short metallic ground strike", "crashC"]]],
-  ["Sortie complete", "Debrief and reward confirmation", [["Brass Dispatch", "brief confident command motif", "completeA"], ["Field Bell", "restrained three-note signal", "completeB"], ["Quiet Victory", "warm low closing cadence", "completeC"]]],
-  ["Main menu bed", "Optional subtle loop-style atmosphere", [["Dawn Airfield", "wind, distant engine, light hum", "menuA"], ["Operations Room", "low room tone and radio texture", "menuB"], ["Quiet Hangar", "spacious mechanical ambience", "menuC"]]],
+  ["Biplane radial engine", "Seven-cylinder mechanical pulse, modeled after the 1:40–2:00 reference", [["Warm Radial", "heavy uneven exhaust at moderate power", "engineA"], ["Airborne Cruise", "cleaner prop wash and higher flight RPM", "engineB"], ["Distant Formation", "several softened radials across the field", "engineC"]]],
+  ["Grenade", "Separate pin, spoon, pressure wave, dirt, and debris layers", [["Pin, Spoon & Dirt", "close mechanical release and outdoor impact", "grenadeA"], ["Hard Ground", "sharper report with a shorter debris tail", "grenadeB"], ["Distant Field", "more air and distance, less close debris", "grenadeC"]]],
+  ["Ground gunfire", "Rifle and anti-air attack cues", [["Dry Rifle", "single sharp trench crack", "gunA"], ["AA Burst", "the retained three-shot heavy burst", "gunB"], ["Distant Battery", "muffled report with a field echo", "gunC"]]],
+  ["Enemy radial fighter", "The same engine family at a faster, more threatening pitch", [["Interceptor Approach", "fast radial building toward the listener", "enemyA"], ["Diving Fighter", "higher RPM with a close propeller bite", "enemyB"], ["Distant Hunter", "muted radial circling beyond the field", "enemyC"]]],
+  ["Aircraft crash", "Mechanical breakup and ground impact without an arcade sweep", [["Canvas & Timber", "fabric tear, wood break, and dirt impact", "crashA"], ["Engine Failure", "radial coughs before the heavy strike", "crashB"], ["Hard Landing", "short metal-and-ground collision", "crashC"]]],
+  ["Sortie complete · Retreat", "The traditional descending Retreat bugle opening", [["Field Bugler", "clear close brass, about three seconds", "completeA"], ["Distant Bugler", "softer call with open-field reflection", "completeB"], ["Short Retreat", "the same call compressed for repeated sorties", "completeC"]]],
+  ["Main menu loop", "Original subdued tactical music inspired by the reference’s atmosphere, not its melody", [["Tactical Dusk", "low strings, restrained drum, and radio air", "menuA"], ["Map Room", "quieter minor pulse with distant percussion", "menuB"], ["Airfield Watch", "warmer dawn drone and sparse low brass", "menuC"]]],
 ];
 
 const grid = document.querySelector("#soundGrid");
@@ -13,13 +13,14 @@ const volume = document.querySelector("#volume");
 const volumeValue = document.querySelector("#volumeValue");
 const selectionCount = document.querySelector("#selectionCount");
 const saved = JSON.parse(localStorage.getItem("ibc-sound-favorites") || "{}");
+const bufferCache = new Map();
 let audio;
 let active = [];
 
 for (const [category, description, variants] of CATEGORIES) {
   const section = document.createElement("section");
   section.className = "category";
-  const slug = category.toLowerCase().replaceAll(" ", "-");
+  const slug = category.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replaceAll(/^-|-$/g, "");
   section.innerHTML = `<h2>${category}</h2><p>${description}</p><div class="variants">${variants.map(([name, note, cue]) => `<article class="variant"><button class="play" type="button" data-cue="${cue}" aria-label="Play ${name}">▶</button><span><strong>${name}</strong><small>${note}</small></span><label class="favorite"><input type="radio" name="${slug}" value="${name}" ${saved[slug] === name ? "checked" : ""}>Favorite</label></article>`).join("")}</div>`;
   grid.append(section);
 }
@@ -30,49 +31,290 @@ function context() {
   return audio;
 }
 
-function tone(start, duration, frequency, endFrequency = frequency, type = "sine", gain = .12) {
-  const ac = context();
-  const osc = ac.createOscillator();
-  const amp = ac.createGain();
-  osc.type = type;
-  osc.frequency.setValueAtTime(frequency, ac.currentTime + start);
-  osc.frequency.exponentialRampToValueAtTime(Math.max(20, endFrequency), ac.currentTime + start + duration);
-  amp.gain.setValueAtTime(.0001, ac.currentTime + start);
-  amp.gain.exponentialRampToValueAtTime(Math.max(.001, gain * Number(volume.value)), ac.currentTime + start + .015);
-  amp.gain.exponentialRampToValueAtTime(.0001, ac.currentTime + start + duration);
-  osc.connect(amp).connect(ac.destination);
-  osc.start(ac.currentTime + start); osc.stop(ac.currentTime + start + duration + .02);
-  active.push(osc);
+function random(seed) {
+  let value = seed >>> 0;
+  return () => {
+    value = (value * 1664525 + 1013904223) >>> 0;
+    return value / 4294967296;
+  };
 }
 
-function noise(start, duration, gain = .08, highpass = 180) {
+function makeBuffer(key, duration, render) {
   const ac = context();
+  const cacheKey = `${key}-${ac.sampleRate}`;
+  if (bufferCache.has(cacheKey)) return bufferCache.get(cacheKey);
   const buffer = ac.createBuffer(1, Math.ceil(ac.sampleRate * duration), ac.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < data.length; i += 1) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
-  const source = ac.createBufferSource(); const filter = ac.createBiquadFilter(); const amp = ac.createGain();
-  source.buffer = buffer; filter.type = "highpass"; filter.frequency.value = highpass; amp.gain.value = gain * Number(volume.value);
-  source.connect(filter).connect(amp).connect(ac.destination); source.start(ac.currentTime + start); active.push(source);
+  render(buffer.getChannelData(0), ac.sampleRate);
+  bufferCache.set(cacheKey, buffer);
+  return buffer;
+}
+
+function normalize(data, ceiling = .92) {
+  let peak = .001;
+  for (const sample of data) peak = Math.max(peak, Math.abs(sample));
+  const gain = ceiling / peak;
+  for (let i = 0; i < data.length; i += 1) data[i] *= gain;
+}
+
+function radialBuffer(cue) {
+  const profiles = {
+    engineA: { rpm: 980, noise: .62, prop: .16, seed: 11, distance: 1 },
+    engineB: { rpm: 1280, noise: .48, prop: .2, seed: 12, distance: .92 },
+    engineC: { rpm: 900, noise: .72, prop: .11, seed: 13, distance: .58, chorus: true },
+    enemyA: { rpm: 1550, noise: .5, prop: .24, seed: 21, distance: .9, rise: .22 },
+    enemyB: { rpm: 1840, noise: .46, prop: .28, seed: 22, distance: 1, rise: .12 },
+    enemyC: { rpm: 1400, noise: .7, prop: .15, seed: 23, distance: .54, chorus: true },
+  };
+  const profile = profiles[cue];
+  return makeBuffer(cue, 6, (data, rate) => {
+    const rand = random(profile.seed);
+    let phase = 0;
+    let secondPhase = .38;
+    let exhaust = 0;
+    let exhaust2 = 0;
+    let lowNoise = 0;
+    let highPass = 0;
+    let previous = 0;
+    for (let i = 0; i < data.length; i += 1) {
+      const time = i / rate;
+      const entrance = Math.min(1, time / .12);
+      const exit = Math.min(1, (6 - time) / .18);
+      const rpmWander = profile.rpm * (1 + Math.sin(time * .73) * .018 + Math.sin(time * 2.17) * .008 + (profile.rise || 0) * (time / 6));
+      const fireRate = rpmWander / 60 * 7 / 2;
+      phase += fireRate / rate;
+      if (phase >= 1) { phase -= 1; exhaust += .78 + rand() * .28; }
+      if (profile.chorus) {
+        secondPhase += fireRate * 1.035 / rate;
+        if (secondPhase >= 1) { secondPhase -= 1; exhaust2 += .38 + rand() * .18; }
+      }
+      exhaust *= Math.exp(-1 / (rate * .019));
+      exhaust2 *= Math.exp(-1 / (rate * .024));
+      lowNoise += ((rand() * 2 - 1) - lowNoise) * .09;
+      const cylinder = (exhaust + exhaust2) * (lowNoise * profile.noise + Math.sin(time * 2 * Math.PI * (72 + rpmWander * .012)) * .24);
+      const bladeRate = rpmWander / 60 * 2;
+      const propeller = Math.sin(time * 2 * Math.PI * bladeRate + Math.sin(time * 3.1) * .12) * profile.prop;
+      const mechanical = (rand() * 2 - 1) * .055 * (exhaust + .25);
+      const raw = (cylinder + propeller + mechanical) * profile.distance;
+      highPass = raw - previous + .996 * highPass;
+      previous = raw;
+      data[i] = Math.tanh(highPass * 1.65) * entrance * exit;
+    }
+    normalize(data, .78);
+  });
+}
+
+function grenadeBuffer(cue) {
+  const profiles = {
+    grenadeA: { blast: .92, dirt: .72, distance: 1, delay: .82, seed: 31 },
+    grenadeB: { blast: 1, dirt: .45, distance: .94, delay: .7, seed: 32 },
+    grenadeC: { blast: .64, dirt: .26, distance: .58, delay: 1.02, seed: 33 },
+  };
+  const profile = profiles[cue];
+  return makeBuffer(cue, 2.8, (data, rate) => {
+    const rand = random(profile.seed);
+    let blastNoise = 0;
+    let dirtNoise = 0;
+    const debris = Array.from({ length: 12 }, () => profile.delay + .12 + rand() * .72);
+    for (let i = 0; i < data.length; i += 1) {
+      const time = i / rate;
+      let sample = 0;
+      const pin = Math.exp(-time * 90) * (Math.sin(time * 2 * Math.PI * 2850) + .55 * Math.sin(time * 2 * Math.PI * 4380));
+      const spoonTime = time - .11;
+      const spoon = spoonTime > 0 ? Math.exp(-spoonTime * 42) * (.7 * Math.sin(spoonTime * 2 * Math.PI * 1180) + .38 * Math.sin(spoonTime * 2 * Math.PI * 2070)) : 0;
+      sample += pin * .16 + spoon * .22;
+      const impactTime = time - profile.delay;
+      if (impactTime >= 0) {
+        const white = rand() * 2 - 1;
+        blastNoise += (white - blastNoise) * .34;
+        dirtNoise += (white - dirtNoise) * .045;
+        const crack = Math.exp(-impactTime * 34) * white * profile.blast;
+        const body = Math.exp(-impactTime * 6.2) * blastNoise * .72;
+        const pressure = Math.exp(-impactTime * 8.5) * Math.sin(impactTime * 2 * Math.PI * 54) * .85;
+        const dirt = Math.exp(-impactTime * 3.6) * dirtNoise * profile.dirt;
+        sample += (crack + body + pressure + dirt) * profile.distance;
+      }
+      for (let index = 0; index < debris.length; index += 1) {
+        const debrisTime = time - debris[index];
+        if (debrisTime >= 0 && debrisTime < .035) sample += Math.exp(-debrisTime * 120) * (rand() * 2 - 1) * .16 * profile.dirt;
+      }
+      data[i] = Math.tanh(sample * 1.25);
+    }
+    normalize(data, .9);
+  });
+}
+
+function impactBuffer(cue) {
+  const profile = cue === "crashA" ? { duration: 2.3, seed: 41, cough: false, metal: .5 }
+    : cue === "crashB" ? { duration: 3, seed: 42, cough: true, metal: .38 }
+      : { duration: 1.8, seed: 43, cough: false, metal: .82 };
+  return makeBuffer(cue, profile.duration, (data, rate) => {
+    const rand = random(profile.seed);
+    let rumble = 0;
+    for (let i = 0; i < data.length; i += 1) {
+      const time = i / rate;
+      let sample = 0;
+      if (profile.cough && time < 1.35) {
+        const pulse = Math.max(0, Math.sin(time * 2 * Math.PI * (28 - time * 8)));
+        sample += pulse ** 9 * (rand() * 2 - 1) * .52;
+      }
+      const hitAt = profile.cough ? 1.2 : .35;
+      const hit = time - hitAt;
+      if (hit >= 0) {
+        const white = rand() * 2 - 1;
+        rumble += (white - rumble) * .06;
+        sample += Math.exp(-hit * 7) * rumble * .9;
+        sample += Math.exp(-hit * 18) * Math.sin(hit * 2 * Math.PI * 48) * .7;
+        sample += Math.exp(-hit * 16) * Math.sin(hit * 2 * Math.PI * 740) * profile.metal;
+      }
+      data[i] = Math.tanh(sample * 1.4);
+    }
+    normalize(data, .86);
+  });
+}
+
+function gunBuffer(cue) {
+  const shots = cue === "gunA" ? [0] : cue === "gunB" ? [0, .14, .29] : [0, .52];
+  const distant = cue === "gunC";
+  return makeBuffer(cue, distant ? 1.8 : 1.1, (data, rate) => {
+    const rand = random(cue === "gunA" ? 51 : cue === "gunB" ? 52 : 53);
+    let low = 0;
+    for (let i = 0; i < data.length; i += 1) {
+      const time = i / rate;
+      let sample = 0;
+      for (const shot of shots) {
+        const local = time - shot;
+        if (local < 0) continue;
+        const white = rand() * 2 - 1;
+        low += (white - low) * (distant ? .025 : .14);
+        sample += Math.exp(-local * (distant ? 8 : 22)) * (white * (distant ? .28 : .66) + low * .5);
+        sample += Math.exp(-local * 16) * Math.sin(local * 2 * Math.PI * (distant ? 58 : 82)) * .42;
+      }
+      data[i] = Math.tanh(sample * 1.35);
+    }
+    normalize(data, .78);
+  });
+}
+
+function bugleWave(ac) {
+  return ac.createPeriodicWave(new Float32Array([0, 1, .82, .46, .25, .13, .07]), new Float32Array(7), { disableNormalization: false });
+}
+
+function bugleNote(start, duration, frequency, gain, distant = false) {
+  const ac = context();
+  const oscillator = ac.createOscillator();
+  const filter = ac.createBiquadFilter();
+  const amp = ac.createGain();
+  oscillator.setPeriodicWave(bugleWave(ac));
+  oscillator.frequency.setValueAtTime(frequency * .982, ac.currentTime + start);
+  oscillator.frequency.exponentialRampToValueAtTime(frequency, ac.currentTime + start + .045);
+  filter.type = "lowpass";
+  filter.frequency.value = distant ? 1700 : 3100;
+  amp.gain.setValueAtTime(.0001, ac.currentTime + start);
+  amp.gain.exponentialRampToValueAtTime(gain * Number(volume.value), ac.currentTime + start + .035);
+  amp.gain.setValueAtTime(gain * Number(volume.value), ac.currentTime + start + Math.max(.04, duration - .1));
+  amp.gain.exponentialRampToValueAtTime(.0001, ac.currentTime + start + duration);
+  oscillator.connect(filter).connect(amp).connect(ac.destination);
+  oscillator.start(ac.currentTime + start);
+  oscillator.stop(ac.currentTime + start + duration + .02);
+  active.push(oscillator);
+}
+
+function playRetreat(cue) {
+  const distant = cue === "completeB";
+  const speed = cue === "completeC" ? .78 : 1;
+  const notes = [
+    [0, .43, 587.33], [.47, .13, 587.33], [.64, .56, 587.33],
+    [1.28, .43, 493.88], [1.75, .13, 493.88], [1.92, .56, 493.88],
+    [2.56, .43, 392], [3.03, .13, 392], [3.2, .62, 392],
+  ];
+  for (const [start, duration, frequency] of notes) bugleNote(start * speed, duration * speed, frequency, distant ? .07 : .105, distant);
+}
+
+function menuBuffer(cue) {
+  const profiles = {
+    menuA: { roots: [73.42, 58.27, 65.41, 55], pulse: .24, air: .045, seed: 61 },
+    menuB: { roots: [65.41, 55, 58.27, 49], pulse: .18, air: .055, seed: 62 },
+    menuC: { roots: [73.42, 65.41, 58.27, 65.41], pulse: .12, air: .034, seed: 63 },
+  };
+  const profile = profiles[cue];
+  const duration = 16;
+  return makeBuffer(cue, duration, (data, rate) => {
+    const rand = random(profile.seed);
+    let air = 0;
+    let radio = 0;
+    for (let i = 0; i < data.length; i += 1) {
+      const time = i / rate;
+      const section = Math.min(3, Math.floor(time / 4));
+      const local = time % 4;
+      const root = profile.roots[section];
+      const crossfade = Math.min(1, local / .35, (4 - local) / .35);
+      const minorThird = root * 1.189207;
+      const fifth = root * 1.498307;
+      const pad = Math.sin(time * 2 * Math.PI * root) * .16
+        + Math.sin(time * 2 * Math.PI * minorThird) * .085
+        + Math.sin(time * 2 * Math.PI * fifth) * .07
+        + Math.sin(time * 2 * Math.PI * root * 2) * .028;
+      const beat = time % 2;
+      const drum = beat < .18 ? Math.exp(-beat * 25) * Math.sin(beat * 2 * Math.PI * 48) * profile.pulse : 0;
+      air += ((rand() * 2 - 1) - air) * .006;
+      radio += ((rand() * 2 - 1) - radio) * .18;
+      const atmosphere = air * profile.air + radio * .004 * (Math.sin(time * .41) > .82 ? 1 : 0);
+      data[i] = (pad * crossfade + drum + atmosphere) * Math.min(1, time / .5, (duration - time) / .5);
+    }
+    normalize(data, .58);
+  });
+}
+
+function playBuffer(buffer, { loop = false } = {}) {
+  const ac = context();
+  const source = ac.createBufferSource();
+  const amp = ac.createGain();
+  source.buffer = buffer;
+  source.loop = loop;
+  amp.gain.value = Number(volume.value);
+  source.connect(amp).connect(ac.destination);
+  source.start();
+  active.push(source);
 }
 
 function play(cue) {
   stop();
-  const letter = cue.at(-1); const base = letter === "A" ? 1 : letter === "B" ? 1.18 : .84;
-  if (cue.startsWith("engine")) { for (let i = 0; i < 20; i += 1) tone(i * .075, .09, 72 * base + (i % 2) * 19, 60 * base, i % 3 ? "sawtooth" : "square", .055); tone(0, 1.55, 46 * base, 52 * base, "sine", .09); }
-  if (cue.startsWith("grenade")) { tone(0, .09, 1300 * base, 700, "square", .05); noise(.18, .55, .025, 700); tone(.18, .6, 340 * base, 85, "sine", .045); noise(.78, .42, .2, 80); tone(.78, .5, 75 * base, 35, "sine", .2); }
-  if (cue.startsWith("gun")) { const count = letter === "A" ? 1 : 3; for (let i = 0; i < count; i += 1) { noise(i * .13, .16, .18 / base, letter === "C" ? 100 : 500); tone(i * .13, .2, 105 * base, 45, "square", .1); } }
-  if (cue.startsWith("enemy")) { tone(0, 1.5, 95 * base, 310 * base, "sawtooth", .07); tone(.45, .9, 220 * base, 100 * base, "sine", .065); }
-  if (cue.startsWith("crash")) { tone(0, .9, 180 * base, 38, "sawtooth", .1); noise(.35, .8, .17, 70); tone(.62, .48, 72, 30, "square", .15); }
-  if (cue.startsWith("complete")) { [1, 1.25, 1.5].forEach((step, i) => tone(i * .18, .42, 220 * base * step, 220 * base * step, letter === "A" ? "square" : "sine", .095)); }
-  if (cue.startsWith("menu")) { tone(0, 2.8, 52 * base, 58 * base, "sine", .055); tone(.1, 2.5, 104 * base, 98 * base, "triangle", .025); noise(0, 2.8, .018, 300); }
+  if (cue.startsWith("engine") || cue.startsWith("enemy")) playBuffer(radialBuffer(cue));
+  else if (cue.startsWith("grenade")) playBuffer(grenadeBuffer(cue));
+  else if (cue.startsWith("gun")) playBuffer(gunBuffer(cue));
+  else if (cue.startsWith("crash")) playBuffer(impactBuffer(cue));
+  else if (cue.startsWith("complete")) playRetreat(cue);
+  else if (cue.startsWith("menu")) playBuffer(menuBuffer(cue), { loop: true });
 }
 
-function stop() { for (const node of active) { try { node.stop(); } catch {} } active = []; }
-function updateCount() { selectionCount.textContent = `${Object.keys(saved).length} of ${CATEGORIES.length} favorites selected`; }
+function stop() {
+  for (const node of active) { try { node.stop(); } catch {} }
+  active = [];
+}
 
-grid.addEventListener("click", (event) => { const button = event.target.closest("[data-cue]"); if (button) play(button.dataset.cue); });
-grid.addEventListener("change", (event) => { if (event.target.type !== "radio") return; saved[event.target.name] = event.target.value; localStorage.setItem("ibc-sound-favorites", JSON.stringify(saved)); updateCount(); });
+function updateCount() {
+  selectionCount.textContent = `${Object.keys(saved).length} of ${CATEGORIES.length} favorites selected`;
+}
+
+grid.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-cue]");
+  if (button) play(button.dataset.cue);
+});
+grid.addEventListener("change", (event) => {
+  if (event.target.type !== "radio") return;
+  saved[event.target.name] = event.target.value;
+  localStorage.setItem("ibc-sound-favorites", JSON.stringify(saved));
+  updateCount();
+});
 volume.addEventListener("input", () => { volumeValue.value = `${Math.round(Number(volume.value) * 100)}%`; });
 document.querySelector("#stopAll").addEventListener("click", stop);
 document.addEventListener("visibilitychange", () => { if (document.hidden) stop(); });
+window.__IBC_SOUND_LAB__ = {
+  getState: () => ({
+    available: Boolean(window.AudioContext),
+    contextState: audio?.state || "uncreated",
+    activeNodes: active.length,
+    renderedBuffers: bufferCache.size,
+  }),
+};
 updateCount();

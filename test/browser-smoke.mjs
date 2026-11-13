@@ -241,8 +241,10 @@ try {
   assert.equal(await evaluate("document.querySelectorAll('.category').length"), 7);
   assert.equal(await evaluate("document.querySelectorAll('[data-cue]').length"), 21);
   assert.equal(await evaluate("document.querySelectorAll('input[type=radio]').length"), 21);
-  await evaluate("document.querySelector('input[type=radio]').click(); document.querySelector('[data-cue]').click(); true");
+  assert.equal(await evaluate("window.__IBC_SOUND_LAB__.getState().available"), true);
+  await evaluate("document.querySelector('input[type=radio]').click(); [...document.querySelectorAll('[data-cue]')].forEach((button) => button.click()); document.querySelector('#stopAll').click(); true");
   assert.equal(await evaluate("document.querySelector('#selectionCount').textContent"), "1 of 7 favorites selected");
+  assert.equal(await evaluate("window.__IBC_SOUND_LAB__.getState().renderedBuffers"), 18);
   await send("Network.emulateNetworkConditions", { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0, connectionType: "none" });
   await send("Page.reload", { ignoreCache: false });
   await waitFor(() => evaluate("document.readyState === 'complete' && document.title.includes('Sound Workshop')"));
