@@ -276,7 +276,7 @@ function emergencyRetreat() {
   ui.priorityButton.hidden = true;
   if (state === "paused") setState("playing");
   for (const plane of operation.aircraft) {
-    if (["ground", "knocked"].includes(plane.phase)) continue;
+    if (["ground", "crashing", "knocked"].includes(plane.phase)) continue;
     plane.hasBomb = false;
     plane.priorityAssigned = false;
     beginReturn(plane);
@@ -302,6 +302,11 @@ function update(dt) {
 
   for (const plane of operation.aircraft) {
     if (plane.phase === "knocked") continue;
+    if (plane.phase === "crashing") {
+      updateCrashingPlane(plane, dt);
+      updateAircraftVisual(plane, dt);
+      continue;
+    }
     if (plane.phase === "ground") {
       plane.cooldown -= dt;
       if (!operation.retreating && plane.cooldown <= 0 && operation.waveRespawn <= 0) {
@@ -326,6 +331,51 @@ function update(dt) {
   operation.effects = operation.effects.filter((effect) => (effect.life -= dt) > 0);
   if (operation.retreating && operation.bombs.length === 0 && operation.aircraft.every((plane) => ["ground", "knocked"].includes(plane.phase))) finishOperation(true);
   else if (operation.bombs.length === 0 && operation.aircraft.every((plane) => plane.phase === "knocked")) finishOperation();
+}
+
+function beginAircraftCrash(plane) {
+  const forward = headingVector(plane.heading);
+  const lateral = { x: -forward.y, y: forward.x };
+  const spinDirection = plane.id % 2 ? 1 : -1;
+  plane.phase = "crashing";
+  plane.crashElapsed = 0;
+  plane.crashDuration = 2.15;
+  plane.crashSpin = spinDirection * (2.4 + (plane.id % 3) * .35);
+  plane.crashStartX = plane.x;
+  plane.crashStartY = plane.y;
+  plane.crashImpactX = Math.max(24, Math.min(WORLD.width - 24, plane.x + forward.x * 62 + lateral.x * spinDirection * 24));
+  plane.crashImpactY = Math.max(40, Math.min(WORLD.height - 34, plane.y + forward.y * 62 + lateral.y * spinDirection * 24));
+  plane.crashStartAltitude = Math.max(.7, plane.altitude || 1);
+  plane.crashSmokeClock = 0;
+  plane.hasBomb = false;
+  plane.priorityAssigned = false;
+  plane.assignedTargetId = null;
+  if (operation.priority?.assigneeId === plane.id) operation.priority.assigneeId = null;
+  sound.play("aircraft-sputter");
+  announce(`${plane.callSign} engine hit. The aircraft is going down.`);
+}
+
+function updateCrashingPlane(plane, dt) {
+  plane.crashElapsed += dt;
+  plane.crashSmokeClock -= dt;
+  const progress = Math.min(1, plane.crashElapsed / plane.crashDuration);
+  const eased = 1 - (1 - progress) ** 2;
+  plane.x = plane.crashStartX + (plane.crashImpactX - plane.crashStartX) * eased;
+  plane.y = plane.crashStartY + (plane.crashImpactY - plane.crashStartY) * eased;
+  plane.altitude = Math.max(0, plane.crashStartAltitude * (1 - progress));
+  plane.heading += plane.crashSpin * dt * (.42 + progress * .9);
+  plane.visualBank = Math.sin(progress * Math.PI * 3) * (1 - progress * .45);
+  if (plane.crashSmokeClock <= 0 && progress < .93) {
+    addEffect(plane.x, plane.y, "crash-smoke");
+    plane.crashSmokeClock = save.settings.reducedEffects ? .26 : .11;
+  }
+  if (progress < 1) return;
+  plane.phase = "knocked";
+  plane.altitude = 0;
+  plane.visualBank = 0;
+  addEffect(plane.x, plane.y, "crash-explosion");
+  sound.play("aircraft-impact");
+  announce(`${plane.callSign} crashed. The crew will be recovered after the operation.`);
 }
 
 function updateTargets(dt) {
@@ -688,7 +738,7 @@ function updateFighter(dt) {
   }
 
   const fighter = operation.fighter;
-  const airborne = operation.aircraft.filter((plane) => !["ground", "taxiOut", "takeoffRoll", "landingRoll", "taxiIn", "knocked"].includes(plane.phase));
+  const airborne = operation.aircraft.filter((plane) => !["ground", "taxiOut", "takeoffRoll", "landingRoll", "taxiIn", "crashing", "knocked"].includes(plane.phase));
   let target = airborne.find((plane) => plane.id === fighter.targetId);
   if (!fighter.fired && !target && airborne.length) {
     target = airborne
@@ -730,16 +780,13 @@ function steerEntityToward(entity, waypoint, dt, turnRate) {
 }
 
 function damagePlane(plane, amount, type, source) {
-  if (plane.phase === "knocked") return;
+  if (["crashing", "knocked"].includes(plane.phase)) return;
   if (operation.threatEvents[type] !== undefined) operation.threatEvents[type] += 1;
   plane.integrity = Math.max(0, plane.integrity - amount);
   addEffect(plane.x, plane.y, type, source ? { fromX: source.x, fromY: source.y } : {});
   sound.play(type);
   if (plane.integrity <= 0) {
-    plane.phase = "knocked";
-    if (operation.priority?.assigneeId === plane.id) operation.priority.assigneeId = null;
-    addEffect(plane.x, plane.y, "lost");
-    sound.play("aircraft-lost");
+    beginAircraftCrash(plane);
   }
 }
 
@@ -748,7 +795,9 @@ function randomInteger(minimum, maximum) {
 }
 
 function addEffect(x, y, type, extra = {}) {
-  const duration = type === "lost" ? 1.3
+  const duration = type === "crash-explosion" ? 1.4
+    : type === "crash-smoke" ? .9
+      : type === "lost" ? 1.3
     : type === "rifle" ? 0.26
       : type === "aa" ? 0.32
         : type === "fighter" ? 0.36
@@ -852,7 +901,9 @@ function drawAircraft(plane) {
   const bankAmount = save.settings.reducedEffects ? bank * 0.45 : bank;
   ctx.transform(1 - Math.abs(bankAmount) * 0.18, bankAmount * 0.08, bankAmount * 0.09, 1, bankAmount * 1.5, 0);
   if (assets.biplane.complete && assets.biplane.naturalWidth) {
+    if (plane.phase === "crashing") ctx.filter = `brightness(${Math.max(.46, 1 - (plane.crashElapsed || 0) * .2)}) sepia(.28)`;
     ctx.drawImage(assets.biplane, -half, -half, size, size);
+    ctx.filter = "none";
   } else {
     ctx.scale(size / 42, size / 42);
     ctx.fillStyle = "#d8c69b";
@@ -860,6 +911,13 @@ function drawAircraft(plane) {
     ctx.fillRect(-25, 7, 50, 7);
     ctx.fillStyle = "#4b3426";
     ctx.fillRect(-4, -18, 8, 44);
+  }
+  if (plane.phase === "crashing") {
+    const flame = .55 + Math.sin((plane.crashElapsed || 0) * 24) * .18;
+    ctx.fillStyle = `rgba(207,77,31,${flame})`;
+    ctx.beginPath(); ctx.arc(0, 0, Math.max(2.5, size * .11), 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "rgba(255,190,72,.8)";
+    ctx.beginPath(); ctx.arc(0, 0, Math.max(1.4, size * .055), 0, Math.PI * 2); ctx.fill();
   }
   ctx.restore();
 
@@ -975,10 +1033,45 @@ function drawBombs() {
 }
 
 function drawEffects() {
-  if (!operation || save.settings.reducedEffects) return;
+  if (!operation) return;
   for (const effect of operation.effects) {
+    if (save.settings.reducedEffects && effect.type !== "crash-explosion") continue;
     const progress = 1 - effect.life / effect.maxLife;
     const alpha = Math.max(0, 1 - progress);
+    if (effect.type === "crash-smoke") {
+      ctx.globalAlpha = alpha * .42;
+      ctx.fillStyle = "#1d2521";
+      ctx.beginPath(); ctx.arc(effect.x, effect.y, 3 + progress * 8, 0, Math.PI * 2); ctx.fill();
+      continue;
+    }
+    if (effect.type === "crash-explosion") {
+      ctx.globalAlpha = alpha;
+      const radius = 10 + progress * 30;
+      const blast = ctx.createRadialGradient(effect.x, effect.y, 1, effect.x, effect.y, radius);
+      blast.addColorStop(0, progress < .42 ? "#fff9cf" : "#cf6b32");
+      blast.addColorStop(.34, progress < .55 ? "#ffbd48" : "#6b4130");
+      blast.addColorStop(.72, "rgba(182,61,31,.72)");
+      blast.addColorStop(1, "rgba(35,31,27,0)");
+      ctx.fillStyle = blast;
+      ctx.beginPath(); ctx.arc(effect.x, effect.y, radius, 0, Math.PI * 2); ctx.fill();
+      if (progress < .62) {
+        ctx.strokeStyle = `rgba(255,205,91,${(1 - progress / .62) * .9})`;
+        ctx.lineWidth = 2;
+        for (let spark = 0; spark < 9; spark += 1) {
+          const angle = spark * Math.PI * 2 / 9 + .31;
+          const inner = 5 + progress * 13;
+          const outer = 15 + progress * 38 + (spark % 3) * 4;
+          ctx.beginPath();
+          ctx.moveTo(effect.x + Math.cos(angle) * inner, effect.y + Math.sin(angle) * inner);
+          ctx.lineTo(effect.x + Math.cos(angle) * outer, effect.y + Math.sin(angle) * outer);
+          ctx.stroke();
+        }
+      }
+      ctx.strokeStyle = `rgba(30,30,25,${alpha * .68})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(effect.x, effect.y, 13 + progress * 39, 0, Math.PI * 2); ctx.stroke();
+      continue;
+    }
     if (["rifle", "aa", "fighter"].includes(effect.type) && Number.isFinite(effect.fromX)) {
       ctx.globalAlpha = alpha;
       ctx.strokeStyle = effect.type === "fighter" ? "#fff4b5" : effect.type === "aa" ? "#17221f" : "#cc8a24";
@@ -1057,7 +1150,7 @@ function updateUI() {
   ui.speedToggle.checked = save.settings.doubleSpeed;
   ui.speedIndicator.hidden = !save.settings.doubleSpeed || !["playing", "paused"].includes(state);
 
-  const active = operation?.aircraft.filter((plane) => plane.phase !== "knocked") || [];
+  const active = operation?.aircraft.filter((plane) => !["crashing", "knocked"].includes(plane.phase)) || [];
   const totalIntegrity = Math.round(active.reduce((sum, plane) => sum + plane.integrity, 0));
   const totalMax = operation ? operation.stats.maxIntegrity * save.aircraft : stats.maxIntegrity * save.aircraft;
   const ratio = totalMax ? totalIntegrity / totalMax : 0;
@@ -1129,7 +1222,7 @@ function buySortieUpgrade(kind) {
   if (kind === "armor") {
     const integrityGain = operation.stats.maxIntegrity - previousStats.maxIntegrity;
     for (const plane of operation.aircraft) {
-      if (plane.phase !== "knocked") plane.integrity = Math.min(operation.stats.maxIntegrity, plane.integrity + integrityGain);
+      if (!["crashing", "knocked"].includes(plane.phase)) plane.integrity = Math.min(operation.stats.maxIntegrity, plane.integrity + integrityGain);
     }
   }
   sound.play("purchase");
@@ -1353,7 +1446,7 @@ window.__IBC__ = {
       effects: operation.effects.map(({ type, x, y, fromX, fromY, life }) => ({ type, x, y, fromX, fromY, life })),
       priority: operation.priority ? structuredClone(operation.priority) : null,
       targets: operation.targets.map(({ id, type, x, y, hp, maxHp, incomingDamage, attackOrder }) => ({ id, type, x, y, hp, maxHp, incomingDamage, attackOrder })),
-      aircraft: operation.aircraft.map(({ id, x, y, phase, altitude, heading, visualBank, integrity, hasBomb, assignedTargetId, priorityAssigned }) => ({ id, x, y, phase, altitude, heading, visualBank, integrity, hasBomb, assignedTargetId, priorityAssigned, visualSize: aircraftVisualSize(altitude) })),
+      aircraft: operation.aircraft.map(({ id, x, y, phase, altitude, heading, visualBank, integrity, hasBomb, assignedTargetId, priorityAssigned, crashElapsed, crashDuration, crashImpactX, crashImpactY }) => ({ id, x, y, phase, altitude, heading, visualBank, integrity, hasBomb, assignedTargetId, priorityAssigned, crashElapsed, crashDuration, crashImpactX, crashImpactY, visualSize: aircraftVisualSize(altitude) })),
     } : null,
   }),
   getAudioState: () => sound.getState(),
@@ -1383,7 +1476,7 @@ window.__IBC__ = {
     operation.targets.forEach((target) => { target.hp = 0; target.incomingDamage = 0; });
     operation.bombs = [];
     operation.waveRespawn = 20;
-    const plane = operation.aircraft.find((candidate) => candidate.phase !== "knocked");
+    const plane = operation.aircraft.find((candidate) => !["crashing", "knocked"].includes(candidate.phase));
     if (plane) {
       plane.x = 338;
       plane.y = 164;
@@ -1398,7 +1491,7 @@ window.__IBC__ = {
     operation.targets.forEach((target) => { target.hp = 0; target.incomingDamage = 0; });
     operation.bombs = [];
     operation.waveRespawn = 0.01;
-    const plane = operation.aircraft.find((candidate) => candidate.phase !== "knocked");
+    const plane = operation.aircraft.find((candidate) => !["crashing", "knocked"].includes(candidate.phase));
     if (plane) {
       plane.x = 82;
       plane.y = 220;
@@ -1410,7 +1503,7 @@ window.__IBC__ = {
   },
   spawnFighterForTest: () => {
     if (!operation) return;
-    const plane = operation.aircraft.find((candidate) => !["ground", "taxiOut", "takeoffRoll", "landingRoll", "taxiIn", "knocked"].includes(candidate.phase));
+    const plane = operation.aircraft.find((candidate) => !["ground", "taxiOut", "takeoffRoll", "landingRoll", "taxiIn", "crashing", "knocked"].includes(candidate.phase));
     if (!plane) return;
     operation.fighter = {
       x: plane.x - 55,
@@ -1425,11 +1518,18 @@ window.__IBC__ = {
   },
   triggerThreatForTest: (type) => {
     if (!operation || !["rifle", "aa"].includes(type)) return;
-    const plane = operation.aircraft.find((candidate) => !["ground", "taxiOut", "takeoffRoll", "landingRoll", "taxiIn", "knocked"].includes(candidate.phase));
+    const plane = operation.aircraft.find((candidate) => !["ground", "taxiOut", "takeoffRoll", "landingRoll", "taxiIn", "crashing", "knocked"].includes(candidate.phase));
     if (!plane) return;
     const source = type === "rifle" ? TRENCH_RIFLE_POSITIONS[0] : AA_POSITIONS[0];
     const amount = type === "rifle" ? TUNING.rifleDamageMin : TUNING.aaDamageMin;
     damagePlane(plane, amount, type, source);
+  },
+  knockOutAircraftForTest: () => {
+    if (!operation) return null;
+    const plane = operation.aircraft.find((candidate) => !["ground", "taxiOut", "takeoffRoll", "landingRoll", "taxiIn", "crashing", "knocked"].includes(candidate.phase));
+    if (!plane) return null;
+    damagePlane(plane, operation.stats.maxIntegrity * 2, "fighter", operation.fighter || { x: plane.x - 40, y: plane.y });
+    return plane.id;
   },
   finishForTest: () => {
     if (!operation) return;

@@ -3,9 +3,9 @@ const CATEGORIES = [
   ["Grenade", "Separate pin, spoon, pressure wave, dirt, and debris layers", [["Pin, Spoon & Dirt", "close mechanical release and outdoor impact", "grenadeA"], ["Hard Ground", "sharper report with a shorter debris tail", "grenadeB"], ["Distant Field", "more air and distance, less close debris", "grenadeC"]]],
   ["Ground gunfire", "Rifle and anti-air attack cues", [["Dry Rifle", "single sharp trench crack", "gunA"], ["AA Burst", "the retained three-shot heavy burst", "gunB"], ["Distant Battery", "muffled report with a field echo", "gunC"]]],
   ["Enemy radial fighter", "The same engine family at a faster, more threatening pitch", [["Interceptor Approach", "fast radial building toward the listener", "enemyA"], ["Diving Fighter", "higher RPM with a close propeller bite", "enemyB"], ["Distant Hunter", "muted radial circling beyond the field", "enemyC"]]],
-  ["Aircraft crash", "Mechanical breakup and ground impact without an arcade sweep", [["Canvas & Timber", "fabric tear, wood break, and dirt impact", "crashA"], ["Engine Failure", "radial coughs before the heavy strike", "crashB"], ["Hard Landing", "short metal-and-ground collision", "crashC"]]],
+  ["Aircraft shot down", "Failing radial engine, uncontrolled descent, breakup, and ground explosion", [["Sputter & Ground Strike", "the reference-matched full engine-failure sequence", "crashA"], ["Burning Descent", "longer intermittent radial cough before impact", "crashB"], ["Close Collision", "shorter descent with a harder airframe breakup", "crashC"]]],
   ["Sortie complete · Retreat", "The traditional descending Retreat bugle opening", [["Field Bugler", "clear close brass, about three seconds", "completeA"], ["Distant Bugler", "softer call with open-field reflection", "completeB"], ["Short Retreat", "the same call compressed for repeated sorties", "completeC"]]],
-  ["Main menu loop", "Original subdued tactical music inspired by the reference’s atmosphere, not its melody", [["Tactical Dusk", "low strings, restrained drum, and radio air", "menuA"], ["Map Room", "quieter minor pulse with distant percussion", "menuB"], ["Airfield Watch", "warmer dawn drone and sparse low brass", "menuC"]]],
+  ["Main menu loop", "Original subdued tactical music with melody and harmony—no radio hiss or noise bed", [["Tactical Dusk", "low strings, measured field drum, and muted brass", "menuA"], ["Map Room", "quiet minor strings with sparse piano-like notes", "menuB"], ["Airfield Watch", "warmer horn harmony and a patient marching pulse", "menuC"]]],
 ];
 
 const grid = document.querySelector("#soundGrid");
@@ -144,31 +144,56 @@ function grenadeBuffer(cue) {
 }
 
 function impactBuffer(cue) {
-  const profile = cue === "crashA" ? { duration: 2.3, seed: 41, cough: false, metal: .5 }
-    : cue === "crashB" ? { duration: 3, seed: 42, cough: true, metal: .38 }
-      : { duration: 1.8, seed: 43, cough: false, metal: .82 };
+  const profile = cue === "crashA" ? { duration: 3.5, hitAt: 2.15, seed: 41, metal: .48, misses: .38 }
+    : cue === "crashB" ? { duration: 4.1, hitAt: 2.72, seed: 42, metal: .34, misses: .52 }
+      : { duration: 2.8, hitAt: 1.55, seed: 43, metal: .76, misses: .26 };
   return makeBuffer(cue, profile.duration, (data, rate) => {
     const rand = random(profile.seed);
-    let rumble = 0;
+    let pulsePhase = 0;
+    let pulseEnvelope = 0;
+    let engineNoise = 0;
+    let impactBody = 0;
+    const debris = Array.from({ length: 18 }, () => profile.hitAt + .08 + rand() * 1.05);
     for (let i = 0; i < data.length; i += 1) {
       const time = i / rate;
       let sample = 0;
-      if (profile.cough && time < 1.35) {
-        const pulse = Math.max(0, Math.sin(time * 2 * Math.PI * (28 - time * 8)));
-        sample += pulse ** 9 * (rand() * 2 - 1) * .52;
+      if (time < profile.hitAt) {
+        const descent = time / profile.hitAt;
+        const rpm = 1540 - descent * 1040;
+        pulsePhase += (rpm / 60 * 7 / 2) / rate;
+        if (pulsePhase >= 1) {
+          pulsePhase -= 1;
+          const firingWindow = Math.sin(time * 10.9) + Math.sin(time * 4.1);
+          if (firingWindow > -profile.misses) pulseEnvelope += .48 + rand() * .5;
+        }
+        pulseEnvelope *= Math.exp(-1 / (rate * .019));
+        engineNoise += ((rand() * 2 - 1) - engineNoise) * .1;
+        const radial = pulseEnvelope * (engineNoise * .72 + Math.sin(time * 2 * Math.PI * 76) * .19);
+        const wind = (rand() * 2 - 1) * (.025 + descent * .13);
+        sample += radial * (1 - descent * .24) + wind;
       }
-      const hitAt = profile.cough ? 1.2 : .35;
-      const hit = time - hitAt;
+      const hit = time - profile.hitAt;
       if (hit >= 0) {
         const white = rand() * 2 - 1;
-        rumble += (white - rumble) * .06;
-        sample += Math.exp(-hit * 7) * rumble * .9;
-        sample += Math.exp(-hit * 18) * Math.sin(hit * 2 * Math.PI * 48) * .7;
-        sample += Math.exp(-hit * 16) * Math.sin(hit * 2 * Math.PI * 740) * profile.metal;
+        impactBody += (white - impactBody) * .055;
+        const initialCrack = Math.exp(-hit * 46) * white * 1.16;
+        const earth = Math.exp(-hit * 5.2) * impactBody * .94;
+        const pressure = Math.exp(-hit * 7.4) * Math.sin(hit * 2 * Math.PI * 46) * .96;
+        const timber = Math.exp(-hit * 13) * Math.sin(hit * 2 * Math.PI * 690) * profile.metal;
+        const secondaryTime = hit - .11;
+        const fuelBurst = secondaryTime >= 0
+          ? Math.exp(-secondaryTime * 8.8) * ((rand() * 2 - 1) * .56 + Math.sin(secondaryTime * 2 * Math.PI * 39) * .62)
+          : 0;
+        sample += initialCrack + earth + pressure + timber + fuelBurst;
       }
-      data[i] = Math.tanh(sample * 1.4);
+      for (const debrisTime of debris) {
+        const local = time - debrisTime;
+        if (local >= 0 && local < .045) sample += Math.exp(-local * 110) * (rand() * 2 - 1) * .18;
+      }
+      const fade = Math.min(1, time / .025, (profile.duration - time) / .12);
+      data[i] = Math.tanh(sample * 1.42) * fade;
     }
-    normalize(data, .86);
+    normalize(data, .91);
   });
 }
 
@@ -232,36 +257,43 @@ function playRetreat(cue) {
 
 function menuBuffer(cue) {
   const profiles = {
-    menuA: { roots: [73.42, 58.27, 65.41, 55], pulse: .24, air: .045, seed: 61 },
-    menuB: { roots: [65.41, 55, 58.27, 49], pulse: .18, air: .055, seed: 62 },
-    menuC: { roots: [73.42, 65.41, 58.27, 65.41], pulse: .12, air: .034, seed: 63 },
+    menuA: { roots: [73.42, 58.27, 65.41, 55], pulse: .2, lead: [293.66, 261.63, 220, 196], warmth: .8 },
+    menuB: { roots: [65.41, 55, 58.27, 49], pulse: .1, lead: [261.63, 220, 233.08, 196], warmth: .55 },
+    menuC: { roots: [73.42, 65.41, 58.27, 65.41], pulse: .16, lead: [220, 246.94, 261.63, 220], warmth: 1 },
   };
   const profile = profiles[cue];
   const duration = 16;
   return makeBuffer(cue, duration, (data, rate) => {
-    const rand = random(profile.seed);
-    let air = 0;
-    let radio = 0;
     for (let i = 0; i < data.length; i += 1) {
       const time = i / rate;
       const section = Math.min(3, Math.floor(time / 4));
       const local = time % 4;
       const root = profile.roots[section];
-      const crossfade = Math.min(1, local / .35, (4 - local) / .35);
+      const envelope = Math.min(1, local / .42, (4 - local) / .48);
       const minorThird = root * 1.189207;
       const fifth = root * 1.498307;
-      const pad = Math.sin(time * 2 * Math.PI * root) * .16
-        + Math.sin(time * 2 * Math.PI * minorThird) * .085
-        + Math.sin(time * 2 * Math.PI * fifth) * .07
-        + Math.sin(time * 2 * Math.PI * root * 2) * .028;
+      const strings = (
+        Math.sin(time * 2 * Math.PI * root) * .14
+        + Math.sin(time * 2 * Math.PI * root * 1.003) * .055
+        + Math.sin(time * 2 * Math.PI * minorThird) * .07
+        + Math.sin(time * 2 * Math.PI * fifth) * .064
+        + Math.sin(time * 2 * Math.PI * root * 2) * .018
+      ) * envelope;
       const beat = time % 2;
       const drum = beat < .18 ? Math.exp(-beat * 25) * Math.sin(beat * 2 * Math.PI * 48) * profile.pulse : 0;
-      air += ((rand() * 2 - 1) - air) * .006;
-      radio += ((rand() * 2 - 1) - radio) * .18;
-      const atmosphere = air * profile.air + radio * .004 * (Math.sin(time * .41) > .82 ? 1 : 0);
-      data[i] = (pad * crossfade + drum + atmosphere) * Math.min(1, time / .5, (duration - time) / .5);
+      const phraseBeat = local % 1;
+      const phraseEnvelope = Math.min(1, phraseBeat / .08, (1 - phraseBeat) / .26);
+      const phraseStep = Math.min(3, Math.floor(local));
+      const leadFrequency = profile.lead[(section + phraseStep) % profile.lead.length];
+      const horn = (
+        Math.sin(time * 2 * Math.PI * leadFrequency) * .032
+        + Math.sin(time * 2 * Math.PI * leadFrequency * 2) * .011
+        + Math.sin(time * 2 * Math.PI * leadFrequency * 3) * .004
+      ) * phraseEnvelope * profile.warmth;
+      const masterFade = Math.min(1, time / .35, (duration - time) / .35);
+      data[i] = (strings + drum + horn) * masterFade;
     }
-    normalize(data, .58);
+    normalize(data, .54);
   });
 }
 

@@ -11,9 +11,10 @@
 7. A temporary priority cargo truck may be tapped. Its first appearance varies between 12–27 seconds, enters from either side, and follows the upper farm road for a 14–18 second unmarked window. The closest loaded airborne aircraft visibly peels away, releases a grenade ahead of the truck, overflies it, and joins the empty recovery route while the delayed impact resolves.
 8. Every grenade dropped earns temporary war bonds that can buy payload, armor, or turnaround requisitions for the current operation only. Destroyed targets award medals for permanent Main Menu purchases; war trophies are reserved for future bosses.
 9. **Emergency Retreat** recalls all surviving aircraft and ends the operation after recovery. The recovered-aircraft percentage becomes an equal medal bonus, so recovering 100% of the force adds 100% of the base medals earned. The separate dark control remains the only Pause/Resume control.
-10. When the force is combat ineffective—or a retreat completes—show a temporary debrief over the battlefield with destroyed targets, recovered aircraft, survival percentage, bonus medals, and total medals earned.
-11. Dismiss the debrief to return to the Main Menu, spend medals in the permanent-upgrade departments, and redeploy. Unspent bonds and all sortie requisitions expire.
-12. Integrity loss is attributable on the battlefield: frequent low-damage trench rifle tracers, less frequent heavier anti-air tracers, and rare enemy fighter sweeps each have distinct damage weights. These are restrained source lines, not large aircraft-centered hit markers. The hostile-tinted enemy biplane turns toward its selected target before firing.
+10. A shot-down aircraft does not vanish on the damage frame. Its radial sputters, it descends and spins through a short smoke trail, then the ground explosion and crash report occur together before the aircraft becomes combat ineffective.
+11. When the force is combat ineffective—or a retreat completes—show a temporary debrief over the battlefield with destroyed targets, recovered aircraft, survival percentage, bonus medals, and total medals earned.
+12. Dismiss the debrief to return to the Main Menu, spend medals in the permanent-upgrade departments, and redeploy. Unspent bonds and all sortie requisitions expire.
+13. Integrity loss is attributable on the battlefield: frequent low-damage trench rifle tracers, less frequent heavier anti-air tracers, and rare enemy fighter sweeps each have distinct damage weights. These are restrained source lines, not large aircraft-centered hit markers. The hostile-tinted enemy biplane turns toward its selected target before firing.
 
 ## Controls
 
