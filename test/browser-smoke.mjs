@@ -75,6 +75,18 @@ try {
   assert.equal(await evaluate("document.querySelector('#settingsDialog').open"), true);
   assert.equal(await evaluate("document.querySelector('#resetSave').getBoundingClientRect().height >= 44"), true);
   assert.equal(await evaluate("window.__IBC__.getAudioState().available"), true);
+  assert.equal(await evaluate("document.querySelectorAll('[data-sound-mix]').length"), 6);
+  await evaluate("document.querySelector('#settingsSoundTab').click(); true");
+  assert.equal(await evaluate("document.querySelector('#settingsSoundPanel').hidden"), false);
+  assert.equal(await evaluate("document.querySelector('#settingsGeneralPanel').hidden"), true);
+  assert.equal(await evaluate("document.querySelector('#musicVolume').getBoundingClientRect().height >= 44"), true);
+  await evaluate("document.querySelector('#musicVolume').value = '0.3'; document.querySelector('#musicVolume').dispatchEvent(new Event('input', { bubbles: true })); true");
+  assert.equal(await evaluate("window.__IBC__.getAudioState().mix.music"), .3);
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('ibc-sound-mix')).music"), .3);
+  assert.equal(await evaluate("document.querySelector('#musicVolume + output').value"), "30%");
+  if (captureDir) await capture("mobile-sound-mix.png");
+  await evaluate("document.querySelector('#settingsGeneralTab').click(); true");
+  assert.equal(await evaluate("document.querySelector('#settingsGeneralPanel').hidden"), false);
   await evaluate("document.querySelector('#soundToggle').click(); true");
   assert.equal(await evaluate("window.__IBC__.getAudioState().enabled"), false);
   await evaluate("document.querySelector('#soundToggle').click(); true");
@@ -262,15 +274,23 @@ try {
   assert.equal(await evaluate("document.querySelectorAll('[data-cue]').length"), 21);
   assert.equal(await evaluate("document.querySelectorAll('input[type=radio]').length"), 21);
   assert.equal(await evaluate("window.__IBC_SOUND_LAB__.getState().available"), true);
-  await evaluate("document.querySelector('input[type=radio]').click(); [...document.querySelectorAll('[data-cue]')].forEach((button) => button.click()); document.querySelector('#stopAll').click(); true");
-  assert.equal(await evaluate("document.querySelector('#selectionCount').textContent"), "1 of 7 favorites selected");
+  await evaluate("[...document.querySelectorAll('.category')].forEach((category) => category.querySelectorAll('input[type=radio]')[1].click()); [...document.querySelectorAll('[data-cue]')].forEach((button) => button.click()); document.querySelector('#stopAll').click(); true");
+  assert.equal(await evaluate("document.querySelector('#selectionCount').textContent"), "7 of 7 favorites selected");
   assert.equal(await evaluate("window.__IBC_SOUND_LAB__.getState().renderedBuffers"), 18);
   await send("Network.emulateNetworkConditions", { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0, connectionType: "none" });
   await send("Page.reload", { ignoreCache: false });
   await waitFor(() => evaluate("document.readyState === 'complete' && document.title.includes('Sound Workshop')"));
   assert.equal(await evaluate("document.querySelectorAll('[data-cue]').length"), 21);
   await send("Network.emulateNetworkConditions", { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1, connectionType: "wifi" });
-  console.log("Browser smoke passed: delayed grenade impacts, nine-target durability, road-following priority truck, sound workshop link, smoothed nose-led flight, curved runway recovery, fighter pursuit, survival bonus, responsive shell, and offline reload.");
+  await send("Page.navigate", { url });
+  await waitFor(() => evaluate("document.readyState === 'complete' && Boolean(window.__IBC__)"));
+  assert.equal(await evaluate("window.__IBC__.getAudioState().favorites"), 7);
+  assert.deepEqual(await evaluate("window.__IBC__.getAudioState().selections"), { engine: "engineB", grenade: "grenadeB", gun: "gunB", enemy: "enemyB", crash: "crashB", complete: "completeB", menu: "menuB" });
+  assert.equal(await evaluate("window.__IBC__.getAudioState().crashDuration"), 2.72);
+  assert.equal(await evaluate("window.__IBC__.getAudioState().mix.music"), .3);
+  await evaluate("document.querySelector('#settingsAction').click(); document.querySelector('#settingsSoundTab').click(); true");
+  assert.equal(await evaluate("document.querySelector('#favoriteSoundCount').textContent"), "7 of 7 workshop favorites active");
+  console.log("Browser smoke passed: adopted Workshop favorites, six-channel persisted mix, delayed grenade impacts, synchronized aircraft crash, nine-target durability, road-following priority truck, smoothed flight, responsive shell, and offline reloads.");
 } finally {
   socket?.close();
   if (browser.exitCode === null && browser.signalCode === null) {

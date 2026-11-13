@@ -109,6 +109,7 @@ const ui = Object.fromEntries([
   "requisitionsPanel", "armoryPanel", "maintenanceTab", "flightOperationsTab", "maintenancePanel",
   "flightOperationsPanel", "departmentDialog", "departmentDialogTitle", "departmentDialogSummary",
   "closeDepartment", "sortieUpgradeList", "sortieUpgradesAction", "sortieDialog", "closeSortieUpgrades", "settingsAction", "settingsDialog", "closeSettings",
+  "settingsGeneralTab", "settingsSoundTab", "settingsGeneralPanel", "settingsSoundPanel", "favoriteSoundCount",
 ].map((id) => [id, document.querySelector(`#${id}`)]));
 
 let save = loadSave();
@@ -339,7 +340,7 @@ function beginAircraftCrash(plane) {
   const spinDirection = plane.id % 2 ? 1 : -1;
   plane.phase = "crashing";
   plane.crashElapsed = 0;
-  plane.crashDuration = 2.15;
+  plane.crashDuration = sound.getCrashDuration();
   plane.crashSpin = spinDirection * (2.4 + (plane.id % 3) * .35);
   plane.crashStartX = plane.x;
   plane.crashStartY = plane.y;
@@ -1149,6 +1150,7 @@ function updateUI() {
   ui.effectsToggle.checked = save.settings.reducedEffects;
   ui.speedToggle.checked = save.settings.doubleSpeed;
   ui.speedIndicator.hidden = !save.settings.doubleSpeed || !["playing", "paused"].includes(state);
+  if (ui.settingsDialog.open) updateSoundMixUI();
 
   const active = operation?.aircraft.filter((plane) => !["crashing", "knocked"].includes(plane.phase)) || [];
   const totalIntegrity = Math.round(active.reduce((sum, plane) => sum + plane.integrity, 0));
@@ -1167,6 +1169,30 @@ function updateUI() {
   ui.pauseAction.setAttribute("aria-label", state === "paused" ? "Resume operation" : "Pause operation");
   updatePurchases();
   updateSortiePurchases();
+}
+
+function selectSettingsPanel(name) {
+  const soundPanel = name === "sound";
+  ui.settingsGeneralTab.classList.toggle("is-active", !soundPanel);
+  ui.settingsSoundTab.classList.toggle("is-active", soundPanel);
+  ui.settingsGeneralTab.setAttribute("aria-selected", String(!soundPanel));
+  ui.settingsSoundTab.setAttribute("aria-selected", String(soundPanel));
+  ui.settingsGeneralPanel.hidden = soundPanel;
+  ui.settingsSoundPanel.hidden = !soundPanel;
+  if (soundPanel) {
+    sound.refreshPreferences();
+    updateSoundMixUI();
+  }
+}
+
+function updateSoundMixUI() {
+  const audio = sound.getState();
+  ui.favoriteSoundCount.textContent = `${audio.favorites} of 7 workshop favorites active`;
+  for (const input of document.querySelectorAll("[data-sound-mix]")) {
+    const value = audio.mix[input.dataset.soundMix];
+    if (document.activeElement !== input) input.value = String(value);
+    input.nextElementSibling.value = `${Math.round(Number(input.value) * 100)}%`;
+  }
 }
 
 function updatePurchases() {
@@ -1351,9 +1377,19 @@ ui.departmentDialog.addEventListener("cancel", (event) => { event.preventDefault
 ui.departmentDialog.addEventListener("close", () => {
   for (const button of [ui.requisitionsTab, ui.armoryTab, ui.maintenanceTab, ui.flightOperationsTab]) button.classList.remove("is-active");
 });
-ui.settingsAction.addEventListener("click", () => { if (!ui.settingsDialog.open) ui.settingsDialog.showModal(); });
+ui.settingsAction.addEventListener("click", () => {
+  sound.refreshPreferences();
+  updateSoundMixUI();
+  if (!ui.settingsDialog.open) ui.settingsDialog.showModal();
+});
 ui.closeSettings.addEventListener("click", () => ui.settingsDialog.close());
 ui.settingsDialog.addEventListener("cancel", (event) => { event.preventDefault(); ui.settingsDialog.close(); });
+ui.settingsGeneralTab.addEventListener("click", () => selectSettingsPanel("general"));
+ui.settingsSoundTab.addEventListener("click", () => selectSettingsPanel("sound"));
+for (const input of document.querySelectorAll("[data-sound-mix]")) input.addEventListener("input", () => {
+  sound.setMix({ [input.dataset.soundMix]: Number(input.value) });
+  input.nextElementSibling.value = `${Math.round(Number(input.value) * 100)}%`;
+});
 ui.sortieUpgradesAction.addEventListener("click", () => { if (!ui.sortieDialog.open) ui.sortieDialog.showModal(); });
 ui.closeSortieUpgrades.addEventListener("click", () => ui.sortieDialog.close());
 ui.sortieDialog.addEventListener("cancel", (event) => { event.preventDefault(); ui.sortieDialog.close(); });
@@ -1396,6 +1432,7 @@ new ResizeObserver(resizeCanvas).observe(canvas);
 document.fonts?.ready.then(resizeCanvas);
 window.addEventListener("blur", () => pause("Paused when the window lost focus."));
 document.addEventListener("visibilitychange", () => { if (document.hidden) pause("Paused while the game was in the background."); });
+window.addEventListener("pageshow", () => { sound.refreshPreferences(); updateSoundMixUI(); });
 document.addEventListener("keydown", (event) => {
   void sound.unlock();
   if (event.code === "Space") {

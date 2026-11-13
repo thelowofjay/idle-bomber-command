@@ -245,16 +245,33 @@
           </button>
           <h2 id="settingsDialogTitle">Settings</h2>
           <p>Field controls and test-progress management.</p>
-          <div class="settings-list">
-            <label><span><strong>Sound cues</strong><small>Aircraft and battlefield audio</small></span><input id="soundToggle" type="checkbox" checked></label>
-            <label><span><strong>Reduce effects</strong><small>Limit flashes and screen motion</small></span><input id="effectsToggle" type="checkbox"></label>
-            <label><span><strong>2× sortie speed</strong><small>Double aircraft, threats, timers, and income</small></span><input id="speedToggle" type="checkbox"></label>
+          <div class="settings-tabs" role="tablist" aria-label="Settings sections">
+            <button id="settingsGeneralTab" class="is-active" type="button" role="tab" aria-selected="true" aria-controls="settingsGeneralPanel">General</button>
+            <button id="settingsSoundTab" type="button" role="tab" aria-selected="false" aria-controls="settingsSoundPanel">Sound mix</button>
           </div>
-          <a class="sound-lab-link" href="sound-lab/"><span><strong>Sound workshop</strong><small>Audition alternate engines, grenades, gunfire, crashes, and music</small></span><b>Open</b></a>
-          <button id="resetSave" class="reset-action" type="button">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a8 8 0 1 1-7.4 5H2l3.5-4L9 9H6.7A6 6 0 1 0 12 6z"/></svg>
-            <span><strong>Reset test progress</strong><small>Clear medals, trophies, aircraft, upgrades, and operations</small></span>
-          </button>
+          <section id="settingsGeneralPanel" role="tabpanel" aria-labelledby="settingsGeneralTab">
+            <div class="settings-list">
+              <label><span><strong>Sound cues</strong><small>Aircraft and battlefield audio</small></span><input id="soundToggle" type="checkbox" checked></label>
+              <label><span><strong>Reduce effects</strong><small>Limit flashes and screen motion</small></span><input id="effectsToggle" type="checkbox"></label>
+              <label><span><strong>2× sortie speed</strong><small>Double aircraft, threats, timers, and income</small></span><input id="speedToggle" type="checkbox"></label>
+            </div>
+            <button id="resetSave" class="reset-action" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a8 8 0 1 1-7.4 5H2l3.5-4L9 9H6.7A6 6 0 1 0 12 6z"/></svg>
+              <span><strong>Reset test progress</strong><small>Clear medals, trophies, aircraft, upgrades, and operations</small></span>
+            </button>
+          </section>
+          <section id="settingsSoundPanel" class="sound-mix-panel" role="tabpanel" aria-labelledby="settingsSoundTab" hidden>
+            <div class="sound-mix-summary"><strong id="favoriteSoundCount">7 workshop favorites active</strong><small>Your selections load automatically on this device.</small></div>
+            <div class="sound-mix-list">
+              <label><span><strong>Master</strong><small>Entire game mix</small></span><input id="masterVolume" data-sound-mix="master" type="range" min="0" max="1" value="0.72" step="0.05"><output for="masterVolume">72%</output></label>
+              <label><span><strong>Music</strong><small>Main Menu loop</small></span><input id="musicVolume" data-sound-mix="music" type="range" min="0" max="1" value="0.45" step="0.05"><output for="musicVolume">45%</output></label>
+              <label><span><strong>Engines</strong><small>Friendly, enemy, and damaged radials</small></span><input id="enginesVolume" data-sound-mix="engines" type="range" min="0" max="1" value="0.72" step="0.05"><output for="enginesVolume">72%</output></label>
+              <label><span><strong>Weapons</strong><small>Grenade mechanics and gunfire</small></span><input id="weaponsVolume" data-sound-mix="weapons" type="range" min="0" max="1" value="0.76" step="0.05"><output for="weaponsVolume">76%</output></label>
+              <label><span><strong>Explosions</strong><small>Grenade and aircraft impacts</small></span><input id="explosionsVolume" data-sound-mix="explosions" type="range" min="0" max="1" value="0.82" step="0.05"><output for="explosionsVolume">82%</output></label>
+              <label><span><strong>Alerts</strong><small>Orders, controls, and Retreat horn</small></span><input id="alertsVolume" data-sound-mix="alerts" type="range" min="0" max="1" value="0.72" step="0.05"><output for="alertsVolume">72%</output></label>
+            </div>
+            <a class="sound-lab-link" href="sound-lab/"><span><strong>Sound workshop</strong><small>Change the favorites used by this mix</small></span><b>Open</b></a>
+          </section>
         </div>
       </dialog>
 

@@ -12,11 +12,11 @@
     <a href="../">← Main menu</a>
     <span>Audio development room</span>
     <h1>Sound Workshop</h1>
-    <p>Audition the reference-matched second pass, mark one favorite per category, and compare everything at a consistent volume. Nothing here changes the live game mix yet.</p>
+    <p>Audition the reference-matched cues and mark one favorite per category. The game uses this device’s favorites automatically the next time its Main Menu opens.</p>
     <label class="master">Master volume <input id="volume" type="range" min="0" max="1" value="0.65" step="0.05"><output id="volumeValue">65%</output></label>
   </header>
   <main id="soundGrid"></main>
-  <footer><strong id="selectionCount">0 of 7 favorites selected</strong><button id="stopAll" type="button">Stop all sound</button><p>Favorites are saved on this device. Send Glennis the selected names when the set feels right.</p></footer>
+  <footer><strong id="selectionCount">0 of 7 favorites selected</strong><button id="stopAll" type="button">Stop all sound</button><p>Favorites are saved on this device and feed the production mix. Fine-tune category levels in Main Menu → Settings → Sound mix.</p></footer>
   <script type="module" src="sound-lab.js"></script>
 </body>
 </html>

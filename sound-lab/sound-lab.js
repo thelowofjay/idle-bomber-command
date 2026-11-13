@@ -325,7 +325,7 @@ function stop() {
 }
 
 function updateCount() {
-  selectionCount.textContent = `${Object.keys(saved).length} of ${CATEGORIES.length} favorites selected`;
+  selectionCount.textContent = `${grid.querySelectorAll('input[type=radio]:checked').length} of ${CATEGORIES.length} favorites selected`;
 }
 
 grid.addEventListener("click", (event) => {
