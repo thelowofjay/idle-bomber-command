@@ -29,7 +29,7 @@ createServer((request, response) => {
     response.end(JSON.stringify({ ok: true, service: "idle-bomber-command" }));
     return;
   }
-  const relative = requestPath === "/" ? "index.html" : normalize(requestPath).replace(/^\/+/, "");
+  const relative = requestPath === "/" ? "index.html" : normalize(requestPath.endsWith("/") ? `${requestPath}index.html` : requestPath).replace(/^\/+/, "");
   const file = join(root, relative);
   if (!file.startsWith(root) || !existsSync(file) || !statSync(file).isFile()) {
     response.writeHead(404, { ...headers, "content-type": "text/plain; charset=utf-8" });

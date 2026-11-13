@@ -2,3 +2,4 @@ node_modules/
 test-artifacts/
 *.log
 .impeccable/review/*.png
+.impeccable/review/production-revision/

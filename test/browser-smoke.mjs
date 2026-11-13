@@ -120,7 +120,8 @@ try {
   if (captureDir) await capture("mobile-runway-takeoff.png");
   const bombReleased = await evaluate("(() => { for (let i = 0; i < 600; i += 1) { window.__IBC__.simulateForTest(0.05); const op = window.__IBC__.getState().operation; if (op.bombs.length > 0) return op; } return null; })()");
   assert.notEqual(bombReleased, null);
-  assert.equal(bombReleased.targets.length, 8);
+  assert.equal(bombReleased.targets.length, 9);
+  assert.equal(bombReleased.targets.filter((target) => target.type === "foxhole").length, 4);
   const firstTarget = bombReleased.targets.find((target) => target.id === "fox-right");
   assert.equal(firstTarget.hp, 8);
   assert.equal(firstTarget.incomingDamage, 8);
@@ -235,11 +236,25 @@ try {
   await waitFor(() => evaluate("document.readyState === 'complete' && Boolean(window.__IBC__)"));
   assert.equal(await evaluate("document.title"), "Idle Bomber Command");
   await send("Network.emulateNetworkConditions", { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1, connectionType: "wifi" });
-  console.log("Browser smoke passed: delayed bomb impacts, eight-target durability, road-following priority truck, sound settings, nose-led flight, curved runway recovery, fighter pursuit, survival bonus, responsive shell, and offline reload.");
+  await send("Page.navigate", { url: `${url}/sound-lab/` });
+  await waitFor(() => evaluate("document.readyState === 'complete' && document.title.includes('Sound Workshop')"));
+  assert.equal(await evaluate("document.querySelectorAll('.category').length"), 7);
+  assert.equal(await evaluate("document.querySelectorAll('[data-cue]').length"), 21);
+  assert.equal(await evaluate("document.querySelectorAll('input[type=radio]').length"), 21);
+  await evaluate("document.querySelector('input[type=radio]').click(); document.querySelector('[data-cue]').click(); true");
+  assert.equal(await evaluate("document.querySelector('#selectionCount').textContent"), "1 of 7 favorites selected");
+  await send("Network.emulateNetworkConditions", { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0, connectionType: "none" });
+  await send("Page.reload", { ignoreCache: false });
+  await waitFor(() => evaluate("document.readyState === 'complete' && document.title.includes('Sound Workshop')"));
+  assert.equal(await evaluate("document.querySelectorAll('[data-cue]').length"), 21);
+  await send("Network.emulateNetworkConditions", { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1, connectionType: "wifi" });
+  console.log("Browser smoke passed: delayed grenade impacts, nine-target durability, road-following priority truck, sound workshop link, smoothed nose-led flight, curved runway recovery, fighter pursuit, survival bonus, responsive shell, and offline reload.");
 } finally {
   socket?.close();
-  browser.kill("SIGTERM");
-  await new Promise((resolve) => browser.once("exit", resolve));
+  if (browser.exitCode === null && browser.signalCode === null) {
+    browser.kill("SIGTERM");
+    await new Promise((resolve) => browser.once("exit", resolve));
+  }
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
       await rm(profile, { recursive: true, force: true, maxRetries: 2, retryDelay: 100 });

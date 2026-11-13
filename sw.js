@@ -1,4 +1,4 @@
-const CACHE = "idle-bomber-command-v22";
+const CACHE = "idle-bomber-command-v23";
 const SHELL = [
   "./",
   "./index.html",
@@ -6,6 +6,9 @@ const SHELL = [
   "./core.js",
   "./game.js",
   "./sound.js",
+  "./sound-lab/index.html",
+  "./sound-lab/sound-lab.css",
+  "./sound-lab/sound-lab.js",
   "./manifest.webmanifest",
   "./icon.svg",
   "./icon-192.png",
@@ -34,7 +37,8 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   if (event.request.mode === "navigate") {
-    event.respondWith(fetch(event.request).catch(() => caches.match("./index.html")));
+    const fallback = new URL(event.request.url).pathname.includes("/sound-lab/") ? "./sound-lab/index.html" : "./index.html";
+    event.respondWith(fetch(event.request).catch(() => caches.match(fallback)));
     return;
   }
   if (new URL(event.request.url).origin !== self.location.origin) return;

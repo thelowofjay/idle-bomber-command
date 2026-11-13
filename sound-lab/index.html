@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1d2d28">
+  <title>Sound Workshop · Idle Bomber Command</title>
+  <link rel="stylesheet" href="sound-lab.css">
+</head>
+<body>
+  <header>
+    <a href="../">← Main menu</a>
+    <span>Audio development room</span>
+    <h1>Sound Workshop</h1>
+    <p>Audition procedural cues, mark one favorite per category, and compare them at a consistent volume. Nothing here changes the live game mix yet.</p>
+    <label class="master">Master volume <input id="volume" type="range" min="0" max="1" value="0.65" step="0.05"><output id="volumeValue">65%</output></label>
+  </header>
+  <main id="soundGrid"></main>
+  <footer><strong id="selectionCount">0 of 7 favorites selected</strong><button id="stopAll" type="button">Stop all sound</button><p>Favorites are saved on this device. Send Glennis the selected names when the set feels right.</p></footer>
+  <script type="module" src="sound-lab.js"></script>
+</body>
+</html>

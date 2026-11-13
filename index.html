@@ -18,6 +18,10 @@
   <body>
     <div class="app-shell">
       <header class="mission-bar">
+        <div class="identity-lockup">
+          <h1>Idle Bomber Command</h1>
+          <p id="operationLabel" class="sr-only">Operation 01 · Trench Network</p>
+        </div>
         <div class="currency-strip" aria-label="Currency balances">
           <div class="currency-ledger">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 1 4 12.7V22l-4-2-4 2v-7.3A7 7 0 0 1 12 2m0 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8"/></svg>
@@ -33,18 +37,29 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 2 .6 2.3a8 8 0 0 1 3.8 0L14.5 2l3.2 1.8-1.7 1.7a8 8 0 0 1 1.9 3.3l2.3-.6v3.6l-2.3-.6a8 8 0 0 1-1.9 3.3l1.7 1.7-3.2 1.8-.6-2.3a8 8 0 0 1-3.8 0L9.5 18l-3.2-1.8L8 14.5a8 8 0 0 1-1.9-3.3l-2.3.6V8.2l2.3.6A8 8 0 0 1 8 5.5L6.3 3.8zm2.5 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6"/></svg>
           </button>
         </div>
-        <div class="identity-lockup">
-          <h1>Idle Bomber Command</h1>
-          <p id="operationLabel" class="sr-only">Operation 01 · Trench Network</p>
-        </div>
       </header>
 
       <main>
         <section id="baseView" class="base-view" aria-labelledby="baseHeading">
           <h2 id="baseHeading" class="sr-only">Main Menu</h2>
           <div class="base-scene" role="img" aria-label="A chronological lineup of bomber aircraft parked across an airbase apron at dawn.">
-            <div class="base-command">
+            <div class="squadron-identity">
+              <span>Your squadron</span>
+              <strong id="baseAircraftReadout">1 × KITE-01</strong>
+              <small>Canvas biplane · grenade loadout · ready</small>
+            </div>
+          </div>
+
+          <div class="base-command">
+            <nav class="campaign-tabs" aria-label="Command records">
+              <button class="campaign-tab is-active" type="button" data-base-tab="campaign" aria-selected="true">Campaign</button>
+              <button class="campaign-tab" type="button" data-base-tab="theaters" aria-selected="false">Theaters</button>
+              <button class="campaign-tab" type="button" data-base-tab="records" aria-selected="false">Records</button>
+            </nav>
+            <div class="base-panels">
+              <section class="base-panel" data-base-panel="campaign">
               <section id="operationSelector" class="operation-selector" aria-labelledby="operationName">
+                <span class="field-order-tab">Field order <strong>01</strong></span>
                 <div class="operation-selector-heading">
                   <span>Operation <strong id="baseOperationNumber">01</strong> of 11</span>
                   <span id="operationLock">Available</span>
@@ -61,8 +76,11 @@
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8.6 19 7-7-7-7-1.4 1.4 5.6 5.6-5.6 5.6z"/></svg>
                   </button>
                 </div>
-                <div class="force-summary"><strong id="baseAircraftReadout">1 serviceable biplane</strong><span id="baseForceStats">Payload 8 · Integrity 70</span></div>
+                <div class="force-summary"><strong>Operation available</strong><span id="baseForceStats">Payload 8 · Integrity 70</span></div>
               </section>
+              <button id="deployAction" class="primary-action deploy-action" type="button">Deploy squadron</button>
+              </section>
+              <section class="base-panel" data-base-panel="theaters" hidden>
               <section class="theater-selector" aria-labelledby="theaterHeading">
                 <div class="theater-heading"><span id="theaterHeading">Theater Operations</span><small>Not yet available</small></div>
                 <div class="theater-options">
@@ -70,7 +88,15 @@
                   <button type="button" data-theater="Air-Superiority Front" aria-disabled="true"><span>Air-Superiority Front</span><strong>0 / 100</strong><small>Reduce enemy fighters</small></button>
                 </div>
               </section>
-              <button id="deployAction" class="primary-action deploy-action" type="button">Deploy to Trench Network</button>
+              </section>
+              <section class="base-panel records-panel" data-base-panel="records" hidden>
+                <span>Command record</span>
+                <dl>
+                  <div><dt>Operations completed</dt><dd id="recordOperations">0</dd></div>
+                  <div><dt>Medals banked</dt><dd id="recordMedals">0</dd></div>
+                  <div><dt>Aircraft in service</dt><dd id="recordAircraft">1</dd></div>
+                </dl>
+              </section>
             </div>
           </div>
 
@@ -95,7 +121,7 @@
             <h2 id="battleHeading" class="sr-only">Trench Network battlefield</h2>
             <div class="canvas-wrap" id="canvasWrap">
               <canvas id="gameCanvas" width="390" height="560" tabindex="0"
-                aria-label="Top-down farmland battlefield. A grass airfield is at the bottom, recognizable trench targets are at the top, and your biplanes fly repeated bombing sorties between them.">
+                aria-label="Top-down farmland battlefield. A grass airfield is at the bottom, recognizable trench targets are at the top, and your biplanes fly repeated grenade sorties between them.">
                 Your browser does not support the game canvas.
               </canvas>
               <div id="statePlate" class="state-plate" aria-hidden="true">
@@ -194,7 +220,7 @@
             <h2 id="requisitionHeading">Sortie Upgrades</h2>
             <span>Temporary · this mission</span>
           </div>
-          <p>Use war bonds earned from bomb drops. Every upgrade and unspent bond expires at debrief.</p>
+          <p>Use war bonds earned from grenade drops. Every upgrade and unspent bond expires at debrief.</p>
           <div id="sortieUpgradeList" class="sortie-upgrade-list">
             <button class="sortie-upgrade" type="button" data-sortie-purchase="payload">
               <span><strong>Extra grenade rack</strong><small data-sortie-effect="payload">Payload 8 → 10</small></span>
@@ -224,6 +250,7 @@
             <label><span><strong>Reduce effects</strong><small>Limit flashes and screen motion</small></span><input id="effectsToggle" type="checkbox"></label>
             <label><span><strong>2× sortie speed</strong><small>Double aircraft, threats, timers, and income</small></span><input id="speedToggle" type="checkbox"></label>
           </div>
+          <a class="sound-lab-link" href="sound-lab/"><span><strong>Sound workshop</strong><small>Audition alternate engines, grenades, gunfire, crashes, and music</small></span><b>Open</b></a>
           <button id="resetSave" class="reset-action" type="button">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a8 8 0 1 1-7.4 5H2l3.5-4L9 9H6.7A6 6 0 1 0 12 6z"/></svg>
             <span><strong>Reset test progress</strong><small>Clear medals, trophies, aircraft, upgrades, and operations</small></span>

@@ -119,7 +119,7 @@ test("target selection works right to left and skips destroyed targets", () => {
   assert.equal(selectNextTarget(targets), null);
 });
 
-test("explicit target order puts the three soft positions before hardened bunkers", () => {
+test("explicit target order puts soft positions before hardened bunkers", () => {
   const targets = [
     { id: "bunker-left", attackOrder: 4, hp: 64 },
     { id: "soft-right", attackOrder: 0, hp: 16 },
@@ -199,7 +199,7 @@ test("priority targets vary within bounded times, positions, and lifetimes", () 
   assert.equal(latest.life > 17.9 && latest.life < 18, true);
 });
 
-test("bomb drops remain airborne before reaching the target at one second", () => {
+test("grenade drops remain airborne before reaching the target at one second", () => {
   const bomb = { startX: 250, startY: 220, targetX: 200, targetY: 160, duration: 1 };
   assert.deepEqual(bombVisualState(bomb, 0), { progress: 0, x: 250, y: 220, scale: 1, shadowScale: 0.35 });
   const halfway = bombVisualState(bomb, 0.5);

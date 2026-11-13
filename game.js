@@ -104,6 +104,7 @@ const ui = Object.fromEntries([
   "stateCode", "stateTitle", "stateMessage", "announcer", "soundToggle", "effectsToggle", "speedToggle", "speedIndicator",
   "resetSave", "upgradeList", "baseView", "battleView", "deployAction", "baseAircraftReadout",
   "baseSummary", "baseOperationNumber", "baseForceStats", "operationName", "operationLock",
+  "recordOperations", "recordMedals", "recordAircraft",
   "previousOperation", "nextOperation", "operationSelector", "aircraftOwnedReadout", "requisitionsTab", "armoryTab",
   "requisitionsPanel", "armoryPanel", "maintenanceTab", "flightOperationsTab", "maintenancePanel",
   "flightOperationsPanel", "departmentDialog", "departmentDialogTitle", "departmentDialogSummary",
@@ -154,6 +155,9 @@ function createOperation() {
       routeIndex: 0,
       altitude: 0,
       heading: 0,
+      renderX: parkingX,
+      renderY: parkingY,
+      renderHeading: 0,
       integrity: stats.maxIntegrity,
       cooldown: index * 2.05,
       threatClock: 0.8 + index * 0.32,
@@ -174,14 +178,15 @@ function createOperation() {
 
 function createTargets() {
   return [
-    { id: "bunker-left", type: "bunker", x: 125, y: 70, hp: 64, maxHp: 64, incomingDamage: 0, attackOrder: 7 },
-    { id: "bunker-right", type: "bunker", x: 265, y: 70, hp: 64, maxHp: 64, incomingDamage: 0, attackOrder: 6 },
-    { id: "gun-left", type: "emplacement", x: 78, y: 125, hp: 16, maxHp: 16, incomingDamage: 0, attackOrder: 5 },
-    { id: "gun-center", type: "emplacement", x: 195, y: 130, hp: 16, maxHp: 16, incomingDamage: 0, attackOrder: 4 },
-    { id: "gun-right", type: "emplacement", x: 312, y: 125, hp: 16, maxHp: 16, incomingDamage: 0, attackOrder: 3 },
-    { id: "fox-left", type: "foxhole", x: 82, y: 176, hp: 8, maxHp: 8, incomingDamage: 0, attackOrder: 2 },
-    { id: "fox-center", type: "foxhole", x: 195, y: 181, hp: 8, maxHp: 8, incomingDamage: 0, attackOrder: 1 },
-    { id: "fox-right", type: "foxhole", x: 308, y: 176, hp: 8, maxHp: 8, incomingDamage: 0, attackOrder: 0 },
+    { id: "bunker-left", type: "bunker", x: 125, y: 70, hp: 64, maxHp: 64, incomingDamage: 0, attackOrder: 8 },
+    { id: "bunker-right", type: "bunker", x: 265, y: 70, hp: 64, maxHp: 64, incomingDamage: 0, attackOrder: 7 },
+    { id: "gun-left", type: "emplacement", x: 78, y: 125, hp: 16, maxHp: 16, incomingDamage: 0, attackOrder: 6 },
+    { id: "gun-center", type: "emplacement", x: 195, y: 130, hp: 16, maxHp: 16, incomingDamage: 0, attackOrder: 5 },
+    { id: "gun-right", type: "emplacement", x: 312, y: 125, hp: 16, maxHp: 16, incomingDamage: 0, attackOrder: 4 },
+    { id: "fox-left", type: "foxhole", x: 54, y: 177, hp: 8, maxHp: 8, incomingDamage: 0, attackOrder: 3 },
+    { id: "fox-mid-left", type: "foxhole", x: 147, y: 183, hp: 8, maxHp: 8, incomingDamage: 0, attackOrder: 2 },
+    { id: "fox-mid-right", type: "foxhole", x: 243, y: 183, hp: 8, maxHp: 8, incomingDamage: 0, attackOrder: 1 },
+    { id: "fox-right", type: "foxhole", x: 336, y: 177, hp: 8, maxHp: 8, incomingDamage: 0, attackOrder: 0 },
   ];
 }
 
@@ -305,12 +310,14 @@ function update(dt) {
         plane.hasBomb = true;
         plane.assignedTargetId = null;
       }
+      updateAircraftVisual(plane, dt);
       continue;
     }
 
     updateAircraftRoute(plane, dt);
 
     if (plane.y < 280) updateGroundThreats(plane, dt);
+    updateAircraftVisual(plane, dt);
 
   }
 
@@ -335,7 +342,7 @@ function updateTargets(dt) {
       plane.assignedTargetId = target.id;
       changePhase(plane, "attackApproach");
     }
-    announce("The full eight-target position has rebuilt. Loaded aircraft are beginning another pass.");
+    announce("The full nine-target position has rebuilt. Loaded aircraft are beginning another pass.");
   }
 }
 
@@ -470,6 +477,16 @@ function moveToward(plane, waypoint, dt) {
   return Math.hypot(waypoint.x - plane.x, waypoint.y - plane.y) <= 3.2;
 }
 
+function updateAircraftVisual(plane, dt) {
+  const positionBlend = 1 - Math.exp(-dt * 11);
+  const headingBlend = 1 - Math.exp(-dt * 9);
+  plane.renderX = Number.isFinite(plane.renderX) ? plane.renderX + (plane.x - plane.renderX) * positionBlend : plane.x;
+  plane.renderY = Number.isFinite(plane.renderY) ? plane.renderY + (plane.y - plane.renderY) * positionBlend : plane.y;
+  const rendered = Number.isFinite(plane.renderHeading) ? plane.renderHeading : plane.heading;
+  const delta = Math.atan2(Math.sin(plane.heading - rendered), Math.cos(plane.heading - rendered));
+  plane.renderHeading = rendered + delta * headingBlend;
+}
+
 function beginReturn(plane) {
   plane.assignedTargetId = null;
   plane.priorityAssigned = false;
@@ -583,7 +600,7 @@ function releaseBomb(plane, target) {
   const forward = headingVector(plane.heading);
   plane.route = [{ x: target.x + forward.x * 42, y: target.y + forward.y * 42 }];
   changePhase(plane, priority ? "priorityOverfly" : "targetOverfly");
-  announce(`${plane.callSign} bomb away. Impact in one second.`);
+  announce(`${plane.callSign} grenade away. Impact in one second.`);
   sound.play("bomb-release");
 }
 
@@ -628,7 +645,7 @@ function resolveBombImpact(bomb) {
   }
   if (target.hp <= 0 && operation.targets.every((candidate) => candidate.hp <= 0) && operation.waveRespawn <= 0) {
     operation.waveRespawn = TUNING.targetWaveDelay;
-    announce(`All eight targets destroyed. Rebuilding in ${Math.ceil(TUNING.targetWaveDelay)} seconds.`);
+    announce(`All nine targets destroyed. Rebuilding in ${Math.ceil(TUNING.targetWaveDelay)} seconds.`);
   }
   sound.play(target.hp <= 0 ? "target-destroyed" : "bomb");
 }
@@ -775,10 +792,10 @@ function drawTargets() {
     ctx.save();
     ctx.globalAlpha = active ? 1 : .24;
     const image = target.type === "bunker" ? assets.bunker : target.type === "foxhole" ? assets.foxhole : assets.emplacement;
-    const width = target.type === "bunker" ? 54 : target.type === "foxhole" ? 44 : 43;
-    const height = target.type === "foxhole" ? 29 : width;
+    const width = target.type === "bunker" ? 54 : target.type === "foxhole" ? 34 : 43;
+    const height = target.type === "foxhole" ? 23 : width;
     if (image.complete && image.naturalWidth) {
-      if (target.type === "emplacement") {
+      if (target.type === "emplacement" || target.type === "foxhole") {
         ctx.translate(target.x, target.y);
         ctx.rotate(Math.PI);
         ctx.drawImage(image, -width / 2, -height / 2, width, height);
@@ -792,8 +809,8 @@ function drawTargets() {
     ctx.restore();
 
     if (operation) {
-      const barWidth = target.type === "bunker" ? 46 : target.type === "foxhole" ? 34 : 36;
-      const y = target.y + (target.type === "bunker" ? 30 : target.type === "foxhole" ? 18 : 24);
+      const barWidth = target.type === "bunker" ? 46 : target.type === "foxhole" ? 28 : 36;
+      const y = target.y + (target.type === "bunker" ? 30 : target.type === "foxhole" ? 15 : 24);
       ctx.fillStyle = "rgba(23,34,31,.62)";
       ctx.fillRect(target.x - barWidth / 2, y, barWidth, 4);
       if (active) {
@@ -825,11 +842,12 @@ function drawAircraft(plane) {
   if (plane.phase === "knocked") return;
   const size = aircraftVisualSize(plane.altitude ?? (plane.phase === "ground" ? 0 : 1));
   const half = size / 2;
-  const angle = plane.heading || 0;
+  const x = Number.isFinite(plane.renderX) ? plane.renderX : plane.x;
+  const y = Number.isFinite(plane.renderY) ? plane.renderY : plane.y;
+  const angle = Number.isFinite(plane.renderHeading) ? plane.renderHeading : (plane.heading || 0);
   ctx.save();
-  ctx.translate(plane.x, plane.y);
-  const flightJitter = (plane.altitude || 0) > .65 ? Math.sin((operation?.elapsed || 0) * 2 + plane.id) * 0.035 : 0;
-  ctx.rotate(angle + flightJitter);
+  ctx.translate(x, y);
+  ctx.rotate(angle);
   const bank = plane.visualBank || 0;
   const bankAmount = save.settings.reducedEffects ? bank * 0.45 : bank;
   ctx.transform(1 - Math.abs(bankAmount) * 0.18, bankAmount * 0.08, bankAmount * 0.09, 1, bankAmount * 1.5, 0);
@@ -848,9 +866,9 @@ function drawAircraft(plane) {
   if (operation && plane.phase !== "ground" && plane.altitude > .65) {
     const max = operation.stats.maxIntegrity;
     ctx.fillStyle = "rgba(23,34,31,.35)";
-    ctx.fillRect(plane.x - 10, plane.y + half + 2, 20, 2);
+    ctx.fillRect(x - 10, y + half + 2, 20, 2);
     ctx.fillStyle = plane.integrity / max < .35 ? "#a7372b" : "#efe5c8";
-    ctx.fillRect(plane.x - 10, plane.y + half + 2, 20 * (plane.integrity / max), 2);
+    ctx.fillRect(x - 10, y + half + 2, 20 * (plane.integrity / max), 2);
     drawFlightTag(plane);
   }
 }
@@ -883,14 +901,16 @@ function drawFlightTag(plane) {
   const width = 43;
   const height = 14;
   const offset = 11 + (plane.id % 3) * 2;
-  const x = plane.x > 300 ? plane.x - width - offset : plane.x + offset;
-  const y = Math.max(42, Math.min(plane.y - 8 + (plane.id % 2) * 10, 528));
+  const planeX = Number.isFinite(plane.renderX) ? plane.renderX : plane.x;
+  const planeY = Number.isFinite(plane.renderY) ? plane.renderY : plane.y;
+  const x = planeX > 300 ? planeX - width - offset : planeX + offset;
+  const y = Math.max(42, Math.min(planeY - 8 + (plane.id % 2) * 10, 528));
   ctx.save();
   ctx.strokeStyle = "rgba(23,34,31,.55)";
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(plane.x + (x < plane.x ? -6 : 6), plane.y);
-  ctx.lineTo(x < plane.x ? x + width : x, y + height / 2);
+  ctx.moveTo(planeX + (x < planeX ? -6 : 6), planeY);
+  ctx.lineTo(x < planeX ? x + width : x, y + height / 2);
   ctx.stroke();
   ctx.fillStyle = "rgba(239,229,200,.94)";
   ctx.fillRect(x, y, width, height);
@@ -936,19 +956,20 @@ function drawBombs() {
     ctx.fill();
     ctx.globalAlpha = 1;
     ctx.translate(visual.x, visual.y);
-    ctx.rotate(bomb.heading || 0);
+    ctx.rotate((bomb.heading || 0) + visual.progress * Math.PI * 2.5);
     ctx.scale(visual.scale, visual.scale);
-    ctx.fillStyle = "#202b26";
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 3.8, 8.5, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#6f765d";
-    ctx.fillRect(-1.5, -7, 3, 7);
-    ctx.fillStyle = "#17221f";
-    ctx.beginPath();
-    ctx.moveTo(-3, -6); ctx.lineTo(-6, -10); ctx.lineTo(-1, -8);
-    ctx.moveTo(3, -6); ctx.lineTo(6, -10); ctx.lineTo(1, -8);
-    ctx.fill();
+    ctx.fillStyle = "#596143";
+    ctx.beginPath(); ctx.roundRect(-4.5, -6, 9, 12, 3); ctx.fill();
+    ctx.strokeStyle = "#252e25";
+    ctx.lineWidth = 1.1;
+    ctx.stroke();
+    ctx.fillStyle = "#2b342b";
+    ctx.fillRect(-2.2, -9, 4.4, 3.8);
+    ctx.strokeStyle = "#202820";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(4.2, -8, 2.6, 0, Math.PI * 1.75); ctx.stroke();
+    ctx.fillStyle = "#808264";
+    ctx.fillRect(-3.4, -7.6, 6.8, 1.4);
     ctx.restore();
   }
 }
@@ -1024,9 +1045,12 @@ function updateUI() {
   ui.bankedMedals.textContent = formatBonds(save.medals);
   ui.bankedTrophies.textContent = formatBonds(save.trophies);
   ui.pendingBonds.textContent = formatBonds(operation?.pendingBonds || 0);
-  ui.baseAircraftReadout.textContent = `${save.aircraft} serviceable biplane${save.aircraft === 1 ? "" : "s"}`;
+  ui.baseAircraftReadout.textContent = `${save.aircraft} × ${save.aircraft === 1 ? "KITE-01" : "KITE FLIGHT"}`;
   ui.aircraftOwnedReadout.textContent = `${save.aircraft} in service`;
   ui.baseForceStats.textContent = `Payload ${stats.payload} · Integrity ${stats.maxIntegrity}`;
+  ui.recordOperations.textContent = String(save.operations);
+  ui.recordMedals.textContent = formatBonds(save.medals);
+  ui.recordAircraft.textContent = String(save.aircraft);
   updateOperationSelector();
   ui.soundToggle.checked = save.settings.sound;
   ui.effectsToggle.checked = save.settings.reducedEffects;
@@ -1150,7 +1174,7 @@ function updateOperationSelector() {
   ui.previousOperation.disabled = selectedOperationIndex === 0;
   ui.nextOperation.disabled = selectedOperationIndex === OPERATIONS.length - 1;
   ui.deployAction.disabled = state !== "base" || !available;
-  ui.deployAction.textContent = available ? `Deploy to ${name}` : "Operation locked in prototype";
+  ui.deployAction.textContent = available ? "Deploy squadron" : "Operation locked in prototype";
   ui.operationLabel.textContent = `Operation ${String(selectedOperationIndex + 1).padStart(2, "0")} · ${name}`;
 }
 
@@ -1159,6 +1183,16 @@ function selectOperation(index) {
   updateOperationSelector();
   const [name] = OPERATIONS[selectedOperationIndex];
   announce(selectedOperationIndex === 0 ? `${name} selected and available.` : `${name}, locked in this prototype.`);
+}
+
+function selectBaseTab(name) {
+  for (const button of document.querySelectorAll("[data-base-tab]")) {
+    const active = button.dataset.baseTab === name;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-selected", String(active));
+  }
+  for (const panel of document.querySelectorAll("[data-base-panel]")) panel.hidden = panel.dataset.basePanel !== name;
+  announce(name === "campaign" ? "Campaign field orders shown." : name === "theaters" ? "Theater operations shown. Both fronts are reserved for a later build." : "Command record shown.");
 }
 
 function openDepartment(name) {
@@ -1208,6 +1242,7 @@ function frame(now) {
 }
 
 ui.deployAction.addEventListener("click", deploy);
+for (const button of document.querySelectorAll("[data-base-tab]")) button.addEventListener("click", () => selectBaseTab(button.dataset.baseTab));
 ui.primaryAction.addEventListener("click", emergencyRetreat);
 ui.pauseAction.addEventListener("click", () => state === "paused" ? resume() : pause());
 ui.priorityButton.addEventListener("click", markPriority);
