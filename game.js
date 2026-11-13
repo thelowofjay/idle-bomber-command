@@ -16,6 +16,7 @@ import {
   sortiePurchaseCost,
   turnToward,
 } from "./core.js";
+import { createSoundDirector } from "./sound.js";
 
 const WORLD = { width: 390, height: 560 };
 const SAVE_KEY = "idle-bomber-command.prototype.v1";
@@ -106,7 +107,8 @@ let operation = null;
 let selectedOperationIndex = 0;
 let operationGestureStart = null;
 let lastFrame = performance.now();
-let audioContext = null;
+const sound = createSoundDirector();
+sound.setEnabled(save.settings.sound);
 
 function createOperation() {
   const stats = calculateStats(save);
@@ -187,6 +189,7 @@ function setState(next, reason = "") {
     ui.statePlate.setAttribute("aria-hidden", "true");
     ui.pauseAction.disabled = true;
   }
+  sound.sync(state, operation, save.settings.doubleSpeed ? 2 : 1);
   updateUI();
 }
 
@@ -201,19 +204,21 @@ function deploy() {
   setState("playing");
   requestAnimationFrame(resizeCanvas);
   announce(`Operation ${save.operations + 1} deployed with ${save.aircraft} biplane${save.aircraft === 1 ? "" : "s"}.`);
-  cue(180, 0.08);
+  sound.play("deploy");
 }
 
 function pause(reason = "Operation paused.") {
   if (state !== "playing") return;
   setState("paused", reason);
   announce(reason);
+  if (reason === "Operation paused.") sound.play("pause");
 }
 
 function resume() {
   if (state !== "paused") return;
   setState("playing");
   announce("Operation resumed.");
+  sound.play("resume");
 }
 
 function finishOperation(retreated = false) {
@@ -229,6 +234,7 @@ function finishOperation(retreated = false) {
   operation.priority = null;
   persist();
   state = "debrief";
+  sound.sync(state, operation, save.settings.doubleSpeed ? 2 : 1);
   ui.statePlate.setAttribute("aria-hidden", "true");
   ui.priorityButton.hidden = true;
   ui.debriefEarned.textContent = `+${formatBonds(medalAward.total)}`;
@@ -241,7 +247,7 @@ function finishOperation(retreated = false) {
   ui.debriefSurvival.textContent = `+${formatBonds(medalAward.survivalBonus)} (${Math.round(medalAward.survivalRate * 100)}%)`;
   ui.debriefDialog.showModal();
   announce(`Operation complete. ${medalAward.total} medals secured, including ${medalAward.survivalBonus} from aircraft survival.`);
-  cue(105, 0.14);
+  sound.play("debrief");
   updateUI();
 }
 
@@ -258,7 +264,7 @@ function emergencyRetreat() {
     beginReturn(plane);
   }
   announce("Emergency retreat ordered. Surviving aircraft are recovering to protect the medal survival bonus.");
-  cue(72, 0.18);
+  sound.play("retreat");
   updateUI();
 }
 
@@ -463,6 +469,7 @@ function updatePriority(dt) {
     };
     ui.priorityButton.hidden = false;
     announce("Priority target exposed. Tap Mark target or press 1.");
+    sound.play("priority-alert");
   }
   if (!operation.priority) return;
   if (operation.priority.marked && !operation.priority.assigneeId) assignPriorityAircraft();
@@ -482,7 +489,7 @@ function markPriority() {
   announce(operation.priority.assigneeId
     ? `Priority target marked. ${operation.aircraft.find((plane) => plane.id === operation.priority.assigneeId)?.callSign} is peeling off.`
     : "Priority target marked. The next loaded aircraft will divert.");
-  cue(440, 0.07);
+  sound.play("priority-marked");
 }
 
 function assignPriorityAircraft() {
@@ -508,7 +515,7 @@ function strikeTarget(plane, target) {
     operation.priority = null;
     ui.priorityButton.hidden = true;
     announce(`Priority target destroyed. ${TUNING.medalRewards.priority} medals secured.`);
-    cue(90, 0.12);
+    sound.play("priority-destroyed");
     plane.route = [{ x: Math.max(42, target.x - 34), y: target.y + 8 }];
     changePhase(plane, "priorityOverfly");
     return;
@@ -529,7 +536,7 @@ function strikeTarget(plane, target) {
     operation.waveRespawn = TUNING.targetWaveDelay;
     announce(`All five targets destroyed. Rebuilding in ${Math.ceil(TUNING.targetWaveDelay)} seconds.`);
   }
-  cue(120, 0.05);
+  sound.play(target.hp <= 0 ? "target-destroyed" : "bomb");
   plane.route = [{ x: Math.max(38, target.x - 34), y: target.y + 8 }];
   changePhase(plane, "targetOverfly");
 }
@@ -567,6 +574,7 @@ function updateFighter(dt) {
       fired: false,
     };
     announce("Enemy fighter sweeping across the operation area.");
+    sound.play("fighter-alert");
     return;
   }
 
@@ -617,11 +625,12 @@ function damagePlane(plane, amount, type, source) {
   if (operation.threatEvents[type] !== undefined) operation.threatEvents[type] += 1;
   plane.integrity = Math.max(0, plane.integrity - amount);
   addEffect(plane.x, plane.y, type, source ? { fromX: source.x, fromY: source.y } : {});
+  sound.play(type);
   if (plane.integrity <= 0) {
     plane.phase = "knocked";
     if (operation.priority?.assigneeId === plane.id) operation.priority.assigneeId = null;
     addEffect(plane.x, plane.y, "lost");
-    cue(55, 0.18);
+    sound.play("aircraft-lost");
   }
 }
 
@@ -958,7 +967,7 @@ function buy(kind) {
   if (!result.purchased) return;
   save = result.save;
   persist();
-  cue(520, 0.06);
+  sound.play("purchase");
   announce(`${kind === "aircraft" ? "Biplane added" : `${kind} upgraded`}. ${result.cost} medals spent.`);
   updateUI();
 }
@@ -977,7 +986,7 @@ function buySortieUpgrade(kind) {
       if (plane.phase !== "knocked") plane.integrity = Math.min(operation.stats.maxIntegrity, plane.integrity + integrityGain);
     }
   }
-  cue(620, 0.06);
+  sound.play("purchase");
   announce(`${kind} sortie requisition issued. ${cost} war bonds spent; it expires after this operation.`);
   updateUI();
 }
@@ -990,22 +999,6 @@ function showPlate(code, title, message) {
 }
 
 function announce(message) { ui.announcer.textContent = message; }
-
-function cue(frequency, duration) {
-  if (!save.settings.sound) return;
-  try {
-    audioContext ||= new AudioContext();
-    const oscillator = audioContext.createOscillator();
-    const gain = audioContext.createGain();
-    oscillator.frequency.value = frequency;
-    oscillator.type = "triangle";
-    gain.gain.setValueAtTime(0.025, audioContext.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + duration);
-    oscillator.connect(gain).connect(audioContext.destination);
-    oscillator.start();
-    oscillator.stop(audioContext.currentTime + duration);
-  } catch { /* sound is optional */ }
-}
 
 function persist() { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); }
 function loadSave() {
@@ -1086,6 +1079,7 @@ function frame(now) {
   const dt = Math.min(0.05, (now - lastFrame) / 1000);
   lastFrame = now;
   update(dt * (save.settings.doubleSpeed ? 2 : 1));
+  sound.sync(state, operation, save.settings.doubleSpeed ? 2 : 1);
   render();
   updateUI();
   requestAnimationFrame(frame);
@@ -1137,17 +1131,23 @@ ui.sortieUpgradeList.addEventListener("click", (event) => {
   const button = event.target.closest("[data-sortie-purchase]");
   if (button) buySortieUpgrade(button.dataset.sortiePurchase);
 });
-ui.soundToggle.addEventListener("change", () => { save.settings.sound = ui.soundToggle.checked; persist(); });
+ui.soundToggle.addEventListener("change", () => {
+  save.settings.sound = ui.soundToggle.checked;
+  persist();
+  sound.setEnabled(save.settings.sound, save.settings.sound);
+});
 ui.effectsToggle.addEventListener("change", () => { save.settings.reducedEffects = ui.effectsToggle.checked; persist(); });
 ui.speedToggle.addEventListener("change", () => { save.settings.doubleSpeed = ui.speedToggle.checked; persist(); updateUI(); });
 ui.resetSave.addEventListener("click", resetPrototype);
 canvas.addEventListener("pointerdown", handleCanvasPointer);
+document.addEventListener("pointerdown", () => { void sound.unlock(); }, { capture: true, once: true });
 window.addEventListener("resize", resizeCanvas);
 new ResizeObserver(resizeCanvas).observe(canvas);
 document.fonts?.ready.then(resizeCanvas);
 window.addEventListener("blur", () => pause("Paused when the window lost focus."));
 document.addEventListener("visibilitychange", () => { if (document.hidden) pause("Paused while the game was in the background."); });
 document.addEventListener("keydown", (event) => {
+  void sound.unlock();
   if (event.code === "Space") {
     event.preventDefault();
     if (state === "playing") pause();
@@ -1198,6 +1198,7 @@ window.__IBC__ = {
       aircraft: operation.aircraft.map(({ id, x, y, phase, altitude, heading, visualBank, integrity, hasBomb, assignedTargetId, priorityAssigned }) => ({ id, x, y, phase, altitude, heading, visualBank, integrity, hasBomb, assignedTargetId, priorityAssigned, visualSize: aircraftVisualSize(altitude) })),
     } : null,
   }),
+  getAudioState: () => sound.getState(),
   setAircraftForTest: (count) => {
     save.aircraft = Math.max(1, Math.floor(Number(count) || 1));
     persist();

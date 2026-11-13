@@ -1,10 +1,11 @@
-const CACHE = "idle-bomber-command-v20";
+const CACHE = "idle-bomber-command-v21";
 const SHELL = [
   "./",
   "./index.html",
   "./styles.css",
   "./core.js",
   "./game.js",
+  "./sound.js",
   "./manifest.webmanifest",
   "./icon.svg",
   "./icon-192.png",

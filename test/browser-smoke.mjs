@@ -74,6 +74,11 @@ try {
   await evaluate("document.querySelector('#settingsAction').click(); true");
   assert.equal(await evaluate("document.querySelector('#settingsDialog').open"), true);
   assert.equal(await evaluate("document.querySelector('#resetSave').getBoundingClientRect().height >= 44"), true);
+  assert.equal(await evaluate("window.__IBC__.getAudioState().available"), true);
+  await evaluate("document.querySelector('#soundToggle').click(); true");
+  assert.equal(await evaluate("window.__IBC__.getAudioState().enabled"), false);
+  await evaluate("document.querySelector('#soundToggle').click(); true");
+  assert.equal(await evaluate("window.__IBC__.getAudioState().enabled"), true);
   if (captureDir) await capture("mobile-settings.png");
   await evaluate("document.querySelector('#closeSettings').click(); true");
   if (captureDir) await capture("mobile-base.png");
