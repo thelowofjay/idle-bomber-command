@@ -118,12 +118,24 @@ try {
   assert.notEqual(noseLedMovement, null);
   assert.equal(noseLedMovement > 0.98, true);
   if (captureDir) await capture("mobile-runway-takeoff.png");
-  const firstPass = await evaluate("(() => { for (let i = 0; i < 600; i += 1) { window.__IBC__.simulateForTest(0.1); const op = window.__IBC__.getState().operation; if (op.hits > 0) return op; } return null; })()");
-  assert.notEqual(firstPass, null);
-  const firstTarget = firstPass.targets.find((target) => target.id === "soft-right");
-  assert.equal(firstTarget.hp < firstTarget.maxHp, true);
+  const bombReleased = await evaluate("(() => { for (let i = 0; i < 600; i += 1) { window.__IBC__.simulateForTest(0.05); const op = window.__IBC__.getState().operation; if (op.bombs.length > 0) return op; } return null; })()");
+  assert.notEqual(bombReleased, null);
+  assert.equal(bombReleased.targets.length, 8);
+  const firstTarget = bombReleased.targets.find((target) => target.id === "fox-right");
+  assert.equal(firstTarget.hp, 8);
+  assert.equal(firstTarget.incomingDamage, 8);
+  assert.equal(bombReleased.hits, 0);
+  assert.equal(bombReleased.aircraft.some((plane) => !plane.hasBomb && plane.phase === "targetOverfly"), true);
+  await evaluate("window.__IBC__.simulateForTest(0.4); true");
+  assert.equal(await evaluate("window.__IBC__.getState().operation.targets.find((target) => target.id === 'fox-right').hp"), 8);
+  assert.equal(await evaluate("window.__IBC__.getState().operation.bombs[0].visual.progress > 0 && window.__IBC__.getState().operation.bombs[0].visual.progress < 1"), true);
+  if (captureDir) await capture("mobile-bomb-drop.png");
+  await evaluate("window.__IBC__.simulateForTest(0.7); true");
+  const firstPass = await evaluate("window.__IBC__.getState().operation");
+  assert.equal(firstPass.targets.find((target) => target.id === "fox-right").hp, 0);
+  assert.equal(firstPass.targets.find((target) => target.id === "gun-right").hp, 16);
   assert.equal(firstPass.targets.find((target) => target.id === "bunker-left").hp, 64);
-  assert.equal(firstPass.aircraft.some((plane) => !plane.hasBomb && ["targetOverfly", "emptyReturn", "final", "landingRoll", "taxiIn"].includes(plane.phase)), true);
+  assert.equal(firstPass.hits > 0, true);
   const integrityBeforeThreats = firstPass.aircraft.reduce((sum, plane) => sum + plane.integrity, 0);
   await evaluate("window.__IBC__.triggerThreatForTest('rifle'); window.__IBC__.triggerThreatForTest('aa'); window.__IBC__.spawnFighterForTest(); window.__IBC__.simulateForTest(0.1); true");
   const turningFighter = await evaluate("window.__IBC__.getState().operation.fighter");
@@ -155,7 +167,7 @@ try {
   assert.notEqual(holdingState, null);
   assert.equal(holdingState.hasBomb, true);
   await evaluate("window.__IBC__.rebuildTargetsForTest(); window.__IBC__.simulateForTest(0.1); true");
-  const rebuiltAssignment = await evaluate("window.__IBC__.getState().operation.aircraft.find((plane) => plane.assignedTargetId === 'soft-left')");
+  const rebuiltAssignment = await evaluate("window.__IBC__.getState().operation.aircraft.find((plane) => plane.assignedTargetId === 'fox-left')");
   assert.notEqual(rebuiltAssignment, null);
   if (captureDir) await capture("mobile-loaded-holding.png");
 
@@ -167,9 +179,16 @@ try {
   await evaluate("document.querySelector('#pauseAction').click(); true");
   assert.equal(await evaluate("window.__IBC__.getState().state"), "playing");
 
-  await evaluate("window.__IBC__.spawnPriorityForTest(); window.__IBC__.markPriority(); true");
+  await evaluate("window.__IBC__.spawnPriorityForTest(); window.__IBC__.simulateForTest(0.5); true");
+  assert.equal(await evaluate("window.__IBC__.getState().operation.priority.x < 282"), true);
+  if (captureDir) await capture("mobile-priority-truck.png");
+  await evaluate("window.__IBC__.markPriority(); true");
   const markedPriority = await evaluate("window.__IBC__.getState().operation.priority");
-  assert.equal(Number.isInteger(markedPriority.assigneeId), true);
+  assert.equal(markedPriority.marked, true);
+  assert.equal(markedPriority.direction, -1);
+  const fallingPriorityBomb = await evaluate("(() => { for (let i = 0; i < 600; i += 1) { window.__IBC__.simulateForTest(0.05); const op = window.__IBC__.getState().operation; if (op.priority?.bombPending && op.bombs.some((bomb) => bomb.priority)) return op; } return null; })()");
+  assert.notEqual(fallingPriorityBomb, null);
+  assert.equal(fallingPriorityBomb.priority.hp, 8);
   const priorityResult = await evaluate("(() => { for (let i = 0; i < 600; i += 1) { window.__IBC__.simulateForTest(0.1); const op = window.__IBC__.getState().operation; if (!op.priority) return op; } return null; })()");
   assert.notEqual(priorityResult, null);
   assert.equal(priorityResult.aircraft.some((plane) => !plane.hasBomb), true);
@@ -216,7 +235,7 @@ try {
   await waitFor(() => evaluate("document.readyState === 'complete' && Boolean(window.__IBC__)"));
   assert.equal(await evaluate("document.title"), "Idle Bomber Command");
   await send("Network.emulateNetworkConditions", { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1, connectionType: "wifi" });
-  console.log("Browser smoke passed: medal migration, reserved boss trophies and theaters, centered aircraft and settings dialogs, 2x speed, nose-led aircraft motion, curved runway recovery, fighter pursuit turns, survival medal bonus, sortie upgrades, reset, debrief, responsive shell, and offline reload.");
+  console.log("Browser smoke passed: delayed bomb impacts, eight-target durability, road-following priority truck, sound settings, nose-led flight, curved runway recovery, fighter pursuit, survival bonus, responsive shell, and offline reload.");
 } finally {
   socket?.close();
   browser.kill("SIGTERM");

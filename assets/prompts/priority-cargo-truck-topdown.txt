@@ -1,0 +1,9 @@
+Use case: stylized-concept
+Asset type: transparent moving priority-target sprite for a portrait mobile Canvas strategy game
+Primary request: a fictionalized World War II-era 2.5-ton military cargo truck, visually similar in role and proportions to a 1940s deuce-and-a-half
+Subject: olive-drab six-wheel cargo truck with a canvas-covered bed, separate cab, rounded fenders, visible hood, spare wheel, rugged tires, and restrained weathering
+Style/medium: hand-painted realistic game sprite matching a brown-and-olive wartime farmland battlefield
+Composition/framing: true 90-degree vertical bird's-eye plan view with no perspective tilt; truck points horizontally to the right/east; centered with generous transparent padding; strong readable silhouette at 42–52 pixels
+Lighting/mood: soft neutral daylight from directly above, subtle contact shadow only
+Constraints: genuinely transparent background; one isolated truck only; period-plausible 1940s construction; no text; no labels; no health bar; no UI; no people; no weapons; no flags; no insignia; no logos; no watermark
+Avoid: modern truck details, box-truck shape, side elevation, three-quarter view, road or scenery baked into the sprite, dramatic cast shadow, duplicated wheels, loaded political symbols

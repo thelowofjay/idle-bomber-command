@@ -143,6 +143,9 @@ export function createSoundDirector() {
       } else if (name === "priority-marked" && canPlay(name, 0.2)) {
         noise({ duration: 0.05, gain: 0.02, frequency: 1900, type: "bandpass" });
         tone({ frequency: 410, endFrequency: 590, duration: 0.09, gain: 0.025, type: "square", delay: 0.025 });
+      } else if (name === "bomb-release" && canPlay(name, 0.08)) {
+        noise({ duration: 0.045, gain: 0.018, frequency: 780, type: "bandpass" });
+        tone({ frequency: 210, endFrequency: 128, duration: 0.14, gain: 0.018, type: "triangle" });
       } else if ((name === "bomb" || name === "target-destroyed") && canPlay("bomb", 0.08)) {
         noise({ duration: name === "target-destroyed" ? 0.34 : 0.24, gain: 0.075, frequency: 650 });
         tone({ frequency: 92, endFrequency: 38, duration: 0.28, gain: 0.065, type: "sine" });

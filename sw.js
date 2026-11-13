@@ -1,4 +1,4 @@
-const CACHE = "idle-bomber-command-v21";
+const CACHE = "idle-bomber-command-v22";
 const SHELL = [
   "./",
   "./index.html",
@@ -15,6 +15,8 @@ const SHELL = [
   "./assets/game/bomber-lineup-main-menu.webp",
   "./assets/game/hardened-bunker-topdown.webp",
   "./assets/game/soft-emplacement-topdown.webp",
+  "./assets/game/two-man-foxhole-topdown.webp",
+  "./assets/game/priority-cargo-truck-topdown.webp",
   "./fonts/barlow-condensed-400.ttf",
   "./fonts/barlow-condensed-600.ttf",
   "./fonts/barlow-condensed-700.ttf",

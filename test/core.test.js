@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   applyPurchase,
   aircraftVisualSize,
+  bombVisualState,
   calculateStats,
   calculateMedalAward,
   createPriorityEventSchedule,
@@ -129,6 +130,17 @@ test("explicit target order puts the three soft positions before hardened bunker
   assert.equal(selectNextTarget(targets), targets[2]);
 });
 
+test("reserved incoming damage keeps formations from wasting bombs on doomed targets", () => {
+  const targets = [
+    { id: "fox-right", attackOrder: 0, hp: 8, incomingDamage: 8 },
+    { id: "gun-right", attackOrder: 1, hp: 16, incomingDamage: 8 },
+    { id: "gun-center", attackOrder: 2, hp: 16, incomingDamage: 0 },
+  ];
+  assert.equal(selectNextTarget(targets), targets[1]);
+  targets[1].incomingDamage = 16;
+  assert.equal(selectNextTarget(targets), targets[2]);
+});
+
 test("rebuilt positions send an en-route aircraft to its nearest live target", () => {
   const targets = [
     { id: "left", x: 70, y: 80, hp: 16, attackOrder: 2 },
@@ -178,9 +190,22 @@ test("priority targets vary within bounded times, positions, and lifetimes", () 
   const earliest = createPriorityEventSchedule(0, 0, 0);
   const latest = createPriorityEventSchedule(0.999, 0.999, 0.999);
   assert.equal(earliest.spawnAt, 12);
-  assert.deepEqual(earliest.position, { x: 72, y: 202 });
-  assert.equal(earliest.life, 9);
+  assert.equal(earliest.direction, 1);
+  assert.deepEqual(earliest.position, { x: -38, y: 222 });
+  assert.equal(earliest.life, 14);
   assert.equal(latest.spawnAt > 26.9 && latest.spawnAt < 27, true);
-  assert.deepEqual(latest.position, { x: 310, y: 224 });
-  assert.equal(latest.life > 13.9 && latest.life < 14, true);
+  assert.equal(latest.direction, -1);
+  assert.deepEqual(latest.position, { x: 428, y: 218 });
+  assert.equal(latest.life > 17.9 && latest.life < 18, true);
+});
+
+test("bomb drops remain airborne before reaching the target at one second", () => {
+  const bomb = { startX: 250, startY: 220, targetX: 200, targetY: 160, duration: 1 };
+  assert.deepEqual(bombVisualState(bomb, 0), { progress: 0, x: 250, y: 220, scale: 1, shadowScale: 0.35 });
+  const halfway = bombVisualState(bomb, 0.5);
+  assert.equal(halfway.progress, 0.5);
+  assert.equal(halfway.x, 237.5);
+  assert.equal(halfway.y, 205);
+  assert.equal(halfway.scale, 0.75);
+  assert.equal(bombVisualState(bomb, 1).progress, 1);
 });

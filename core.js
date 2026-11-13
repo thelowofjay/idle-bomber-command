@@ -17,7 +17,7 @@ export const TUNING = Object.freeze({
   baseSpeed: 26,
   speedPerLevel: 3,
   warBondsPerDrop: 8,
-  medalRewards: Object.freeze({ emplacement: 1, bunker: 3, priority: 2 }),
+  medalRewards: Object.freeze({ foxhole: 1, emplacement: 2, bunker: 3, priority: 2 }),
   sortiePayloadPerLevel: 2,
   sortieArmorPerLevel: 10,
   sortieTurnaroundPerLevel: 0.3,
@@ -130,13 +130,13 @@ export function pointInCircle(point, circle) {
 
 export function selectNextTarget(targets) {
   return targets
-    .filter((target) => target.hp > 0)
+    .filter((target) => target.hp - (target.incomingDamage || 0) > 0)
     .sort((left, right) => (left.attackOrder ?? -left.x) - (right.attackOrder ?? -right.x))[0] || null;
 }
 
 export function selectClosestTarget(targets, point) {
   return targets
-    .filter((target) => target.hp > 0)
+    .filter((target) => target.hp - (target.incomingDamage || 0) > 0)
     .sort((left, right) => {
       const leftDistance = (left.x - point.x) ** 2 + (left.y - point.y) ** 2;
       const rightDistance = (right.x - point.x) ** 2 + (right.y - point.y) ** 2;
@@ -145,16 +145,28 @@ export function selectClosestTarget(targets, point) {
 }
 
 export function createPriorityEventSchedule(timeRoll = Math.random(), positionRoll = Math.random(), lifeRoll = Math.random()) {
-  const positions = [
-    { x: 72, y: 202 }, { x: 142, y: 224 }, { x: 224, y: 198 }, { x: 310, y: 224 },
-  ];
   const time = clamp(timeRoll, 0, 0.999999);
   const position = clamp(positionRoll, 0, 0.999999);
   const life = clamp(lifeRoll, 0, 0.999999);
+  const direction = position < 0.5 ? 1 : -1;
   return {
     spawnAt: 12 + time * 15,
-    position: positions[Math.floor(position * positions.length)],
-    life: 9 + life * 5,
+    direction,
+    position: direction > 0 ? { x: -38, y: 222 } : { x: 428, y: 218 },
+    life: 14 + life * 4,
+  };
+}
+
+export function bombVisualState(bomb, elapsed = bomb.elapsed) {
+  const duration = Math.max(0.001, bomb.duration || 0.9);
+  const progress = clamp(elapsed / duration, 0, 1);
+  const eased = progress ** 2;
+  return {
+    progress,
+    x: bomb.startX + (bomb.targetX - bomb.startX) * eased,
+    y: bomb.startY + (bomb.targetY - bomb.startY) * eased,
+    scale: 1 - progress * 0.5,
+    shadowScale: 0.35 + progress * 0.65,
   };
 }
 

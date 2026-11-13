@@ -1,8 +1,4 @@
 {
-  "promptFile": "assets/prompts/bomber-lineup-main-menu.txt",
-  "source": "OpenAI built-in image generation",
-  "sourceImage": "/home/klwilsn4/.openclaw/agents/main/agent/codex-home/generated_images/01a1bebd-b108-74c1-9688-b4ba6435f99d/exec-82b2884e-60ab-479d-9cd4-1d140a97bca7.png",
-  "createdAt": "2026-11-09T23:58:00Z",
-  "dimensions": "1536x1024",
-  "notes": "Fictionalized aircraft silhouettes; no national markings or readable text. Converted to WebP quality 86 for runtime use."
+  "prompt": "Use case: historical-scene game main-menu hero artwork\nAsset type: wide responsive main-menu background\nPrimary request: a chronological apron lineup showing the aircraft progression from canvas biplane through near-future stealth bomber\nScene/backdrop: a broad forward-airbase apron at muted golden dawn with desaturated olive hangars, distant mountains, small anonymous ground-crew figures, and restrained brass sunlight\nSubject: eleven fictionalized, mechanically plausible bomber and strike-aircraft silhouettes progressing from canvas biplane, early monoplane, dive bomber, twin-engine medium bomber, four-engine heavy bomber, long-span strategic bomber, swept strike jet, strategic jet bomber, angular stealth attacker, flying-wing stealth bomber, and near-future flying-wing bomber\nStyle/medium: cinematic digital painting with premium strategy-game painterly realism rather than photorealism\nComposition/framing: wide 3:2; lineup across the middle 60%; calm upper-center sky for live title overlay; safe for center-crop and mobile cover\nLighting/mood: warm dawn, industrious, calm, aspirational\nColor palette: dusty khaki, desaturated olive, warm brass, charcoal clouds\nConstraints: no combat, explosions, flags, national markings, real-world insignia, extremist symbols, readable text, logos, UI, border, or watermark\n",
+  "createdAt": "2026-11-13T16:38:16.753Z"
 }

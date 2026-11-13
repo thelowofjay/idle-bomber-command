@@ -2,6 +2,7 @@ import {
   TUNING,
   applyPurchase,
   aircraftVisualSize,
+  bombVisualState,
   calculateStats,
   calculateMedalAward,
   createPriorityEventSchedule,
@@ -27,7 +28,11 @@ const assets = {
   biplane: loadImage("assets/game/canvas-biplane-topdown.webp"),
   bunker: loadImage("assets/game/hardened-bunker-topdown.webp"),
   emplacement: loadImage("assets/game/soft-emplacement-topdown.webp"),
+  foxhole: loadImage("assets/game/two-man-foxhole-topdown.webp"),
+  priorityTruck: loadImage("assets/game/priority-cargo-truck-topdown.webp"),
 };
+const BOMB_RELEASE_DISTANCE = 34;
+const BOMB_FALL_DURATION = 0.95;
 const TAXI_OUT_ROUTE = [
   { x: 236, y: 505 },
   { x: 236, y: 482 },
@@ -67,6 +72,10 @@ const HOLDING_ROUTE = [
   { x: 70, y: 300 },
   { x: 300, y: 300 },
   { x: 338, y: 164 },
+];
+const PRIORITY_ROAD_EAST = [
+  { x: -38, y: 222 }, { x: 34, y: 224 }, { x: 98, y: 221 }, { x: 160, y: 226 },
+  { x: 222, y: 223 }, { x: 286, y: 215 }, { x: 352, y: 216 }, { x: 428, y: 218 },
 ];
 const TRENCH_RIFLE_POSITIONS = [
   { x: 42, y: 54 }, { x: 105, y: 91 }, { x: 170, y: 58 },
@@ -157,6 +166,7 @@ function createOperation() {
     targets: createTargets(),
     priority: null,
     prioritySpawned: false,
+    bombs: [],
     effects: [],
     stats,
   };
@@ -164,11 +174,14 @@ function createOperation() {
 
 function createTargets() {
   return [
-    { id: "bunker-left", type: "bunker", x: 125, y: 70, hp: 64, maxHp: 64, attackOrder: 4 },
-    { id: "bunker-right", type: "bunker", x: 265, y: 70, hp: 64, maxHp: 64, attackOrder: 3 },
-    { id: "soft-left", type: "emplacement", x: 78, y: 132, hp: 16, maxHp: 16, attackOrder: 2 },
-    { id: "soft-center", type: "emplacement", x: 195, y: 138, hp: 16, maxHp: 16, attackOrder: 1 },
-    { id: "soft-right", type: "emplacement", x: 312, y: 132, hp: 16, maxHp: 16, attackOrder: 0 },
+    { id: "bunker-left", type: "bunker", x: 125, y: 70, hp: 64, maxHp: 64, incomingDamage: 0, attackOrder: 7 },
+    { id: "bunker-right", type: "bunker", x: 265, y: 70, hp: 64, maxHp: 64, incomingDamage: 0, attackOrder: 6 },
+    { id: "gun-left", type: "emplacement", x: 78, y: 125, hp: 16, maxHp: 16, incomingDamage: 0, attackOrder: 5 },
+    { id: "gun-center", type: "emplacement", x: 195, y: 130, hp: 16, maxHp: 16, incomingDamage: 0, attackOrder: 4 },
+    { id: "gun-right", type: "emplacement", x: 312, y: 125, hp: 16, maxHp: 16, incomingDamage: 0, attackOrder: 3 },
+    { id: "fox-left", type: "foxhole", x: 82, y: 176, hp: 8, maxHp: 8, incomingDamage: 0, attackOrder: 2 },
+    { id: "fox-center", type: "foxhole", x: 195, y: 181, hp: 8, maxHp: 8, incomingDamage: 0, attackOrder: 1 },
+    { id: "fox-right", type: "foxhole", x: 308, y: 176, hp: 8, maxHp: 8, incomingDamage: 0, attackOrder: 0 },
   ];
 }
 
@@ -301,16 +314,18 @@ function update(dt) {
 
   }
 
+  updateBombs(dt);
+
   operation.effects = operation.effects.filter((effect) => (effect.life -= dt) > 0);
-  if (operation.retreating && operation.aircraft.every((plane) => ["ground", "knocked"].includes(plane.phase))) finishOperation(true);
-  else if (operation.aircraft.every((plane) => plane.phase === "knocked")) finishOperation();
+  if (operation.retreating && operation.bombs.length === 0 && operation.aircraft.every((plane) => ["ground", "knocked"].includes(plane.phase))) finishOperation(true);
+  else if (operation.bombs.length === 0 && operation.aircraft.every((plane) => plane.phase === "knocked")) finishOperation();
 }
 
 function updateTargets(dt) {
   if (operation.waveRespawn <= 0) return;
   operation.waveRespawn -= dt;
   if (operation.waveRespawn <= 0) {
-    operation.targets.forEach((target) => { target.hp = target.maxHp; });
+    operation.targets.forEach((target) => { target.hp = target.maxHp; target.incomingDamage = 0; });
     operation.waveRespawn = 0;
     operation.targetWaves += 1;
     for (const plane of operation.aircraft) {
@@ -320,7 +335,7 @@ function updateTargets(dt) {
       plane.assignedTargetId = target.id;
       changePhase(plane, "attackApproach");
     }
-    announce("The full five-target position has rebuilt. Loaded aircraft are beginning another pass.");
+    announce("The full eight-target position has rebuilt. Loaded aircraft are beginning another pass.");
   }
 }
 
@@ -341,10 +356,11 @@ function updateAircraftRoute(plane, dt) {
     return;
   }
   if (plane.phase === "attackApproach") {
-    const target = operation.targets.find((candidate) => candidate.id === plane.assignedTargetId && candidate.hp > 0) || selectNextTarget(operation.targets);
+    const target = operation.targets.find((candidate) => candidate.id === plane.assignedTargetId && candidate.hp - (candidate.incomingDamage || 0) > 0) || selectNextTarget(operation.targets);
     if (!target) { beginHolding(plane); return; }
     plane.assignedTargetId = target.id;
-    if (moveToward(plane, target, dt)) strikeTarget(plane, target);
+    if (Math.hypot(target.x - plane.x, target.y - plane.y) <= BOMB_RELEASE_DISTANCE) releaseBomb(plane, target);
+    else moveToward(plane, target, dt);
     return;
   }
   if (plane.phase === "targetOverfly" || plane.phase === "priorityOverfly") {
@@ -353,7 +369,9 @@ function updateAircraftRoute(plane, dt) {
   }
   if (plane.phase === "priorityApproach") {
     if (!operation.priority) { beginAttackOrHold(plane); return; }
-    if (moveToward(plane, operation.priority, dt)) strikeTarget(plane, operation.priority);
+    if (operation.priority.bombPending) { beginReturn(plane); return; }
+    if (Math.hypot(operation.priority.x - plane.x, operation.priority.y - plane.y) <= BOMB_RELEASE_DISTANCE) releaseBomb(plane, operation.priority);
+    else moveToward(plane, operation.priority, dt);
     return;
   }
   if (plane.phase === "holding") {
@@ -461,17 +479,33 @@ function beginReturn(plane) {
 function updatePriority(dt) {
   if (!operation.prioritySpawned && operation.elapsed >= operation.prioritySchedule.spawnAt) {
     operation.prioritySpawned = true;
+    const direction = operation.prioritySchedule.direction;
+    const route = direction > 0 ? PRIORITY_ROAD_EAST : [...PRIORITY_ROAD_EAST].reverse();
     operation.priority = {
       ...operation.prioritySchedule.position,
-      radius: 26,
+      radius: 30,
       life: operation.prioritySchedule.life,
       marked: false,
+      direction,
+      route,
+      routeIndex: 1,
+      speed: 22,
+      hp: 8,
+      maxHp: 8,
+      incomingDamage: 0,
+      bombPending: false,
     };
     ui.priorityButton.hidden = false;
-    announce("Priority target exposed. Tap Mark target or press 1.");
+    announce(`Priority cargo truck entering from the ${direction > 0 ? "west" : "east"}. Tap Mark target or press 1.`);
     sound.play("priority-alert");
   }
   if (!operation.priority) return;
+  if (!operation.priority.bombPending && movePriorityVehicle(operation.priority, dt)) {
+    operation.priority = null;
+    ui.priorityButton.hidden = true;
+    announce("Priority cargo truck escaped along the road.");
+    return;
+  }
   if (operation.priority.marked && !operation.priority.assigneeId) assignPriorityAircraft();
   if (!operation.priority.marked) operation.priority.life -= dt;
   if (operation.priority.life <= 0) {
@@ -479,6 +513,26 @@ function updatePriority(dt) {
     ui.priorityButton.hidden = true;
     announce("Priority target withdrew.");
   }
+}
+
+function movePriorityVehicle(target, dt) {
+  const waypoint = target.route[target.routeIndex];
+  if (!waypoint) return true;
+  const dx = waypoint.x - target.x;
+  const dy = waypoint.y - target.y;
+  const distance = Math.hypot(dx, dy);
+  const speed = target.marked ? target.speed * 0.62 : target.speed;
+  const travel = Math.min(distance, speed * dt);
+  if (distance > 0) {
+    target.x += dx / distance * travel;
+    target.y += dy / distance * travel;
+  }
+  if (distance <= speed * dt + 0.01) {
+    target.x = waypoint.x;
+    target.y = waypoint.y;
+    target.routeIndex += 1;
+  }
+  return target.routeIndex >= target.route.length;
 }
 
 function markPriority() {
@@ -502,43 +556,81 @@ function assignPriorityAircraft() {
   changePhase(plane, "priorityApproach");
 }
 
-function strikeTarget(plane, target) {
+function releaseBomb(plane, target) {
   plane.hasBomb = false;
   operation.sorties += 1;
   operation.pendingBonds += TUNING.warBondsPerDrop;
-  if (target === operation.priority) {
-    operation.baseMedals += TUNING.medalRewards.priority;
-    operation.destroyedTargets += 1;
-    operation.priorityHits += 1;
-    operation.hits += 1;
-    addEffect(target.x, target.y, "priority");
-    operation.priority = null;
+  const priority = target === operation.priority;
+  const damage = priority ? Math.max(8, operation.stats.payload) : operation.stats.payload;
+  target.incomingDamage = (target.incomingDamage || 0) + damage;
+  if (priority) {
+    target.bombPending = true;
     ui.priorityButton.hidden = true;
-    announce(`Priority target destroyed. ${TUNING.medalRewards.priority} medals secured.`);
-    sound.play("priority-destroyed");
-    plane.route = [{ x: Math.max(42, target.x - 34), y: target.y + 8 }];
-    changePhase(plane, "priorityOverfly");
+  }
+  operation.bombs.push({
+    id: `${plane.id}-${operation.sorties}`,
+    targetId: priority ? "priority" : target.id,
+    priority,
+    startX: plane.x,
+    startY: plane.y,
+    targetX: target.x,
+    targetY: target.y,
+    heading: plane.heading,
+    elapsed: 0,
+    duration: BOMB_FALL_DURATION,
+    damage,
+  });
+  const forward = headingVector(plane.heading);
+  plane.route = [{ x: target.x + forward.x * 42, y: target.y + forward.y * 42 }];
+  changePhase(plane, priority ? "priorityOverfly" : "targetOverfly");
+  announce(`${plane.callSign} bomb away. Impact in one second.`);
+  sound.play("bomb-release");
+}
+
+function updateBombs(dt) {
+  for (const bomb of operation.bombs) {
+    bomb.elapsed += dt;
+    if (bomb.elapsed < bomb.duration) continue;
+    resolveBombImpact(bomb);
+  }
+  operation.bombs = operation.bombs.filter((bomb) => bomb.elapsed < bomb.duration);
+}
+
+function resolveBombImpact(bomb) {
+  const target = bomb.priority ? operation.priority : operation.targets.find((candidate) => candidate.id === bomb.targetId);
+  if (!target) return;
+  target.incomingDamage = Math.max(0, (target.incomingDamage || 0) - bomb.damage);
+  const wasActive = target.hp > 0;
+  const dealt = Math.min(target.hp, bomb.damage);
+  target.hp -= dealt;
+  operation.hits += dealt > 0 ? 1 : 0;
+  addEffect(bomb.targetX, bomb.targetY, bomb.priority ? "priority" : "impact");
+
+  if (bomb.priority) {
+    if (target.hp <= 0) {
+      const medals = TUNING.medalRewards.priority;
+      operation.baseMedals += medals;
+      operation.destroyedTargets += 1;
+      operation.priorityHits += 1;
+      operation.priority = null;
+      announce(`Priority cargo truck destroyed. ${medals} medals secured.`);
+      sound.play("priority-destroyed");
+    }
     return;
   }
 
-  const wasActive = target.hp > 0;
-  const dealt = Math.min(target.hp, operation.stats.payload);
-  target.hp -= dealt;
-  operation.hits += 1;
-  addEffect(target.x, target.y, "impact");
   if (wasActive && target.hp <= 0) {
     const medals = TUNING.medalRewards[target.type] || 1;
+    const targetName = target.type === "bunker" ? "Hardened bunker" : target.type === "foxhole" ? "Two-man foxhole" : "Artillery position";
     operation.baseMedals += medals;
     operation.destroyedTargets += 1;
-    announce(`${target.type === "bunker" ? "Hardened target" : "Emplacement"} destroyed. ${medals} ${medals === 1 ? "medal" : "medals"} secured.`);
+    announce(`${targetName} destroyed. ${medals} ${medals === 1 ? "medal" : "medals"} secured.`);
   }
-  if (target.hp <= 0 && operation.targets.every((candidate) => candidate.hp <= 0)) {
+  if (target.hp <= 0 && operation.targets.every((candidate) => candidate.hp <= 0) && operation.waveRespawn <= 0) {
     operation.waveRespawn = TUNING.targetWaveDelay;
-    announce(`All five targets destroyed. Rebuilding in ${Math.ceil(TUNING.targetWaveDelay)} seconds.`);
+    announce(`All eight targets destroyed. Rebuilding in ${Math.ceil(TUNING.targetWaveDelay)} seconds.`);
   }
   sound.play(target.hp <= 0 ? "target-destroyed" : "bomb");
-  plane.route = [{ x: Math.max(38, target.x - 34), y: target.y + 8 }];
-  changePhase(plane, "targetOverfly");
 }
 
 function updateGroundThreats(plane, dt) {
@@ -654,6 +746,7 @@ function render() {
   if (operation) {
     drawFighter();
     for (const plane of operation.aircraft) drawAircraft(plane);
+    drawBombs();
     drawEffects();
     drawPriority();
   } else {
@@ -681,30 +774,31 @@ function drawTargets() {
     const active = target.hp > 0;
     ctx.save();
     ctx.globalAlpha = active ? 1 : .24;
-    const image = target.type === "bunker" ? assets.bunker : assets.emplacement;
-    const size = target.type === "bunker" ? 54 : 43;
+    const image = target.type === "bunker" ? assets.bunker : target.type === "foxhole" ? assets.foxhole : assets.emplacement;
+    const width = target.type === "bunker" ? 54 : target.type === "foxhole" ? 44 : 43;
+    const height = target.type === "foxhole" ? 29 : width;
     if (image.complete && image.naturalWidth) {
       if (target.type === "emplacement") {
         ctx.translate(target.x, target.y);
         ctx.rotate(Math.PI);
-        ctx.drawImage(image, -size / 2, -size / 2, size, size);
+        ctx.drawImage(image, -width / 2, -height / 2, width, height);
       } else {
-        ctx.drawImage(image, target.x - size / 2, target.y - size / 2, size, size);
+        ctx.drawImage(image, target.x - width / 2, target.y - height / 2, width, height);
       }
     } else {
       ctx.fillStyle = target.type === "bunker" ? "#554838" : "#6b583d";
-      ctx.beginPath(); ctx.arc(target.x, target.y, size * .34, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(target.x, target.y, width * .34, height * .34, 0, 0, Math.PI * 2); ctx.fill();
     }
     ctx.restore();
 
     if (operation) {
-      const width = target.type === "bunker" ? 46 : 36;
-      const y = target.y + (target.type === "bunker" ? 30 : 24);
+      const barWidth = target.type === "bunker" ? 46 : target.type === "foxhole" ? 34 : 36;
+      const y = target.y + (target.type === "bunker" ? 30 : target.type === "foxhole" ? 18 : 24);
       ctx.fillStyle = "rgba(23,34,31,.62)";
-      ctx.fillRect(target.x - width / 2, y, width, 4);
+      ctx.fillRect(target.x - barWidth / 2, y, barWidth, 4);
       if (active) {
-        ctx.fillStyle = target.type === "bunker" ? "#d38e32" : "#c94432";
-        ctx.fillRect(target.x - width / 2, y, width * (target.hp / target.maxHp), 4);
+        ctx.fillStyle = target.type === "bunker" ? "#d38e32" : target.type === "foxhole" ? "#efe5c8" : "#c94432";
+        ctx.fillRect(target.x - barWidth / 2, y, barWidth * (target.hp / target.maxHp), 4);
       } else {
         ctx.strokeStyle = "rgba(23,34,31,.62)";
         ctx.lineWidth = 2;
@@ -815,20 +909,48 @@ function drawPriority() {
   ctx.strokeStyle = target.marked ? "#fff4b5" : "#a7372b";
   ctx.lineWidth = 3;
   ctx.setLineDash([5, 4]);
-  ctx.beginPath(); ctx.arc(target.x, target.y, target.radius, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(target.x, target.y, target.radius, 18, 0, 0, Math.PI * 2); ctx.stroke();
   ctx.setLineDash([]);
-  ctx.fillStyle = "#4e5e3c";
-  ctx.fillRect(target.x - 14, target.y - 9, 22, 18);
-  ctx.fillStyle = "#2b332b";
-  ctx.fillRect(target.x + 8, target.y - 6, 9, 12);
-  ctx.fillStyle = "#a9c0b5";
-  ctx.fillRect(target.x + 10, target.y - 4, 5, 4);
-  ctx.fillStyle = "#1d251f";
-  ctx.beginPath();
-  ctx.arc(target.x - 9, target.y + 10, 4, 0, Math.PI * 2);
-  ctx.arc(target.x + 11, target.y + 10, 4, 0, Math.PI * 2);
-  ctx.fill();
+  const width = 64;
+  const height = 26;
+  if (assets.priorityTruck.complete && assets.priorityTruck.naturalWidth) {
+    ctx.translate(target.x, target.y);
+    ctx.scale(target.direction < 0 ? -1 : 1, 1);
+    ctx.drawImage(assets.priorityTruck, -width / 2, -height / 2, width, height);
+  } else {
+    ctx.fillStyle = "#4e5e3c";
+    ctx.fillRect(target.x - width / 2, target.y - height / 2, width, height);
+  }
   ctx.restore();
+}
+
+function drawBombs() {
+  if (!operation?.bombs.length) return;
+  for (const bomb of operation.bombs) {
+    const visual = bombVisualState(bomb);
+    ctx.save();
+    ctx.globalAlpha = 0.18 + visual.progress * 0.18;
+    ctx.fillStyle = "#17221f";
+    ctx.beginPath();
+    ctx.ellipse(bomb.targetX, bomb.targetY, 7 * visual.shadowScale, 3.5 * visual.shadowScale, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.translate(visual.x, visual.y);
+    ctx.rotate(bomb.heading || 0);
+    ctx.scale(visual.scale, visual.scale);
+    ctx.fillStyle = "#202b26";
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 3.8, 8.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#6f765d";
+    ctx.fillRect(-1.5, -7, 3, 7);
+    ctx.fillStyle = "#17221f";
+    ctx.beginPath();
+    ctx.moveTo(-3, -6); ctx.lineTo(-6, -10); ctx.lineTo(-1, -8);
+    ctx.moveTo(3, -6); ctx.lineTo(6, -10); ctx.lineTo(1, -8);
+    ctx.fill();
+    ctx.restore();
+  }
 }
 
 function drawEffects() {
@@ -1192,9 +1314,10 @@ window.__IBC__ = {
       fighter: operation.fighter ? structuredClone(operation.fighter) : null,
       prioritySchedule: structuredClone(operation.prioritySchedule),
       threatEvents: structuredClone(operation.threatEvents),
+      bombs: operation.bombs.map((bomb) => ({ ...structuredClone(bomb), visual: bombVisualState(bomb) })),
       effects: operation.effects.map(({ type, x, y, fromX, fromY, life }) => ({ type, x, y, fromX, fromY, life })),
       priority: operation.priority ? structuredClone(operation.priority) : null,
-      targets: operation.targets.map(({ id, type, x, y, hp, maxHp, attackOrder }) => ({ id, type, x, y, hp, maxHp, attackOrder })),
+      targets: operation.targets.map(({ id, type, x, y, hp, maxHp, incomingDamage, attackOrder }) => ({ id, type, x, y, hp, maxHp, incomingDamage, attackOrder })),
       aircraft: operation.aircraft.map(({ id, x, y, phase, altitude, heading, visualBank, integrity, hasBomb, assignedTargetId, priorityAssigned }) => ({ id, x, y, phase, altitude, heading, visualBank, integrity, hasBomb, assignedTargetId, priorityAssigned, visualSize: aircraftVisualSize(altitude) })),
     } : null,
   }),
@@ -1213,12 +1336,17 @@ window.__IBC__ = {
   spawnPriorityForTest: () => {
     if (!operation) return;
     operation.prioritySpawned = true;
-    operation.priority = { x: 282, y: 170, radius: 26, life: 30, marked: false };
+    operation.priority = {
+      x: 282, y: 216, radius: 30, life: 30, marked: false, direction: -1, speed: 22,
+      route: [{ x: 282, y: 216 }, { x: 222, y: 223 }, { x: 160, y: 226 }, { x: 98, y: 221 }, { x: 34, y: 224 }, { x: -38, y: 222 }],
+      routeIndex: 1, hp: 8, maxHp: 8, incomingDamage: 0, bombPending: false,
+    };
     ui.priorityButton.hidden = false;
   },
   destroyTargetsForTest: () => {
     if (!operation) return;
-    operation.targets.forEach((target) => { target.hp = 0; });
+    operation.targets.forEach((target) => { target.hp = 0; target.incomingDamage = 0; });
+    operation.bombs = [];
     operation.waveRespawn = 20;
     const plane = operation.aircraft.find((candidate) => candidate.phase !== "knocked");
     if (plane) {
@@ -1232,7 +1360,8 @@ window.__IBC__ = {
   },
   rebuildTargetsForTest: () => {
     if (!operation) return;
-    operation.targets.forEach((target) => { target.hp = 0; });
+    operation.targets.forEach((target) => { target.hp = 0; target.incomingDamage = 0; });
+    operation.bombs = [];
     operation.waveRespawn = 0.01;
     const plane = operation.aircraft.find((candidate) => candidate.phase !== "knocked");
     if (plane) {
@@ -1240,7 +1369,7 @@ window.__IBC__ = {
       plane.y = 220;
       plane.altitude = 1;
       plane.hasBomb = true;
-      plane.assignedTargetId = "soft-right";
+      plane.assignedTargetId = "fox-right";
       changePhase(plane, "attackApproach");
     }
   },

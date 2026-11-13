@@ -1,0 +1,9 @@
+Use case: stylized-concept
+Asset type: transparent early-game ground-target sprite for a portrait mobile Canvas strategy game
+Primary request: a compact World War I two-man foxhole target, clearly lighter and more vulnerable than an artillery emplacement
+Subject: one irregular shallow oval earth fighting position with a low muddy berm and sparse sandbags, containing exactly two small crouched helmeted soldiers viewed from above; two rifles resting within the position; subtle boot-worn earth and sparse grass camouflage
+Style/medium: hand-painted realistic game sprite matching a brown-and-olive Western Front farmland battlefield and the existing detailed artillery emplacement art
+Composition/framing: exact 90-degree overhead orthographic top-down view, no perspective tilt; centered with generous transparent padding; compact strong silhouette readable at 28–36 pixels; roughly wider than tall
+Lighting/mood: soft neutral daylight from directly above, subtle contact shadow only
+Constraints: genuinely transparent background; one isolated two-man foxhole only; period-plausible 1916 equipment; no gore; no text; no labels; no health bar; no UI; no flags; no insignia; no logos; no watermark
+Avoid: concrete bunker, large trench network, artillery gun, machine gun, modern equipment, three-quarter view, baked scenery, dramatic cast shadow, extra people, duplicated anatomy, loaded political symbols
