@@ -25,6 +25,9 @@ export function createSoundDirector() {
   let engineSceneGain = null;
   let menuSource = null;
   let engineSource = null;
+  let fighterSource = null;
+  let fighterGain = null;
+  let fighterPanner = null;
   let noiseBuffer = null;
   let enabled = true;
   let scene = "base";
@@ -34,6 +37,31 @@ export function createSoundDirector() {
   let selections = readFavoriteCues();
   let mix = readSoundMix();
   const lastPlayed = new Map();
+  const activeSources = new Map(["music", "engines", "weapons", "explosions", "alerts"].map((name) => [name, new Set()]));
+  let combatSuppressed = false;
+  let lastPreviewBus = "";
+
+  function track(source, group) {
+    const sources = activeSources.get(group);
+    if (!sources) return source;
+    sources.add(source);
+    source.addEventListener("ended", () => sources.delete(source), { once: true });
+    return source;
+  }
+
+  function stopGroup(group) {
+    for (const source of activeSources.get(group) || []) {
+      try { source.stop(); } catch {}
+    }
+    activeSources.get(group)?.clear();
+  }
+
+  function stopFighter() {
+    try { fighterSource?.stop(); } catch {}
+    fighterSource = null;
+    fighterGain = null;
+    fighterPanner = null;
+  }
 
   function ensureContext() {
     if (!AudioContextClass) return false;
@@ -117,17 +145,19 @@ export function createSoundDirector() {
     return context.state === "running";
   }
 
-  function playBuffer(buffer, bus, gain = 1) {
+  function playBuffer(buffer, bus, gain = 1, group = "alerts") {
     if (!context || context.state !== "running") return;
     const source = context.createBufferSource();
     const envelope = context.createGain();
     source.buffer = buffer;
     envelope.gain.value = gain;
     source.connect(envelope).connect(bus);
+    track(source, group);
     source.start();
+    return source;
   }
 
-  function tone({ frequency, endFrequency = frequency, duration = .1, gain = .03, type = "triangle", delay = 0, bus = alertsBus }) {
+  function tone({ frequency, endFrequency = frequency, duration = .1, gain = .03, type = "triangle", delay = 0, bus = alertsBus, group = "alerts" }) {
     if (!context || context.state !== "running") return;
     const start = context.currentTime + delay;
     const oscillator = context.createOscillator();
@@ -139,11 +169,12 @@ export function createSoundDirector() {
     envelope.gain.exponentialRampToValueAtTime(gain, start + Math.min(.012, duration * .2));
     envelope.gain.exponentialRampToValueAtTime(.0001, start + duration);
     oscillator.connect(envelope).connect(bus);
+    track(oscillator, group);
     oscillator.start(start);
     oscillator.stop(start + duration + .02);
   }
 
-  function noise({ duration = .12, gain = .04, frequency = 900, type = "lowpass", delay = 0, bus = alertsBus }) {
+  function noise({ duration = .12, gain = .04, frequency = 900, type = "lowpass", delay = 0, bus = alertsBus, group = "alerts" }) {
     if (!context || context.state !== "running") return;
     const start = context.currentTime + delay;
     const source = context.createBufferSource();
@@ -155,6 +186,7 @@ export function createSoundDirector() {
     envelope.gain.setValueAtTime(gain, start);
     envelope.gain.exponentialRampToValueAtTime(.0001, start + duration);
     source.connect(filter).connect(envelope).connect(bus);
+    track(source, group);
     source.start(start, Math.random() * .35, duration);
     source.stop(start + duration + .02);
   }
@@ -200,6 +232,7 @@ export function createSoundDirector() {
     if (!enabled) return;
     void unlock().then((ready) => {
       if (!ready) return;
+      if (combatSuppressed && !["debrief", "enabled"].includes(name)) return;
       if (name === "deploy" && canPlay(name, .3)) {
         noise({ duration: .24, gain: .045, frequency: 520 });
         tone({ frequency: 58, endFrequency: 92, duration: .34, gain: .045, type: "sawtooth" });
@@ -214,19 +247,19 @@ export function createSoundDirector() {
         noise({ duration: .05, gain: .02, frequency: 1900, type: "bandpass" });
         tone({ frequency: 410, endFrequency: 590, duration: .09, gain: .025, type: "square", delay: .025 });
       } else if (name === "bomb-release" && canPlay(name, .08)) {
-        playBuffer(library.grenadeMechanicalBuffer(selections.grenade), weaponsBus, .9);
+        playBuffer(library.grenadeMechanicalBuffer(selections.grenade), weaponsBus, .9, "weapons");
       } else if ((name === "bomb" || name === "target-destroyed" || name === "priority-destroyed") && canPlay("grenade-impact", .08)) {
-        playBuffer(library.grenadeImpactBuffer(selections.grenade), explosionsBus, name === "priority-destroyed" ? 1 : .88);
+        playBuffer(library.grenadeImpactBuffer(selections.grenade), explosionsBus, name === "priority-destroyed" ? 1 : .88, "explosions");
       } else if ((name === "rifle" || name === "aa") && canPlay(name, name === "aa" ? .16 : .12)) {
-        playBuffer(library.gunBuffer(selections.gun), weaponsBus, name === "aa" ? .74 : .56);
+        playBuffer(library.gunBuffer(selections.gun), weaponsBus, name === "aa" ? .74 : .56, "weapons");
       } else if (name === "fighter" && canPlay(name, .2)) {
-        playBuffer(library.gunBuffer(selections.gun), weaponsBus, .62);
+        playBuffer(library.gunBuffer(selections.gun), weaponsBus, .62, "weapons");
       } else if (name === "fighter-alert" && canPlay(name, 2)) {
-        playBuffer(library.radialBuffer(selections.enemy), engineBus, .58);
+        tone({ frequency: 520, endFrequency: 420, duration: .16, gain: .018, type: "triangle" });
       } else if (name === "aircraft-sputter" && canPlay(name, .25)) {
-        playBuffer(library.crashSputterBuffer(selections.crash), engineBus, .82);
+        playBuffer(library.crashSputterBuffer(selections.crash), engineBus, .82, "engines");
       } else if ((name === "aircraft-impact" || name === "aircraft-lost") && canPlay("aircraft-impact", .25)) {
-        playBuffer(library.crashImpactBuffer(selections.crash), explosionsBus, .95);
+        playBuffer(library.crashImpactBuffer(selections.crash), explosionsBus, .95, "explosions");
       } else if (name === "retreat" && canPlay(name, .5)) {
         tone({ frequency: 310, endFrequency: 170, duration: .38, gain: .04, type: "sawtooth" });
         tone({ frequency: 270, endFrequency: 145, duration: .38, gain: .028, type: "sawtooth", delay: .16 });
@@ -241,11 +274,63 @@ export function createSoundDirector() {
     });
   }
 
+  function syncFighter(fighter, speedMultiplier = 1) {
+    if (!context || combatSuppressed || scene !== "playing" || !fighter) {
+      stopFighter();
+      return;
+    }
+    if (!fighterSource) {
+      fighterSource = context.createBufferSource();
+      fighterGain = context.createGain();
+      fighterPanner = context.createStereoPanner ? context.createStereoPanner() : null;
+      fighterSource.buffer = library.radialBuffer(selections.enemy);
+      fighterSource.loop = true;
+      fighterSource.connect(fighterGain);
+      if (fighterPanner) fighterGain.connect(fighterPanner).connect(engineBus);
+      else fighterGain.connect(engineBus);
+      fighterSource.start();
+    }
+    const pan = clamp((fighter.x / 390) * 2 - 1, -1, 1);
+    const edgeDistance = Math.min(fighter.x + 58, 448 - fighter.x);
+    const proximity = clamp(edgeDistance / 150, .08, 1);
+    fighterGain.gain.setTargetAtTime(.06 + proximity * .2, context.currentTime, .06);
+    if (fighterPanner) fighterPanner.pan.setTargetAtTime(pan, context.currentTime, .06);
+    fighterSource.playbackRate.setTargetAtTime(speedMultiplier * 1.08, context.currentTime, .06);
+  }
+
+  function enterDebrief() {
+    combatSuppressed = true;
+    stopFighter();
+    for (const group of ["engines", "weapons", "explosions", "alerts"]) stopGroup(group);
+    if (context) {
+      ramp(engineSceneGain?.gain, .0001, .04);
+      ramp(menuSceneGain?.gain, .0001, .04);
+    }
+  }
+
+  function previewBus(name) {
+    if (!enabled) return;
+    void unlock().then((ready) => {
+      if (!ready) return;
+      lastPreviewBus = name;
+      if (name === "engines") {
+        const sample = playBuffer(library.radialBuffer(selections.engine), engineBus, .36, "engines");
+        try { sample?.stop(context.currentTime + 1.2); } catch {}
+      }
+      else if (name === "weapons") playBuffer(library.grenadeMechanicalBuffer(selections.grenade), weaponsBus, .8, "weapons");
+      else if (name === "explosions") playBuffer(library.grenadeImpactBuffer(selections.grenade), explosionsBus, .7, "explosions");
+      else if (name === "alerts") tone({ frequency: 440, endFrequency: 620, duration: .14, gain: .035 });
+      else if (name === "master") tone({ frequency: 360, endFrequency: 520, duration: .14, gain: .03 });
+    });
+  }
+
   function sync(nextScene, operation, speedMultiplier = 1, force = false) {
     const sceneChanged = nextScene !== previousScene;
     scene = nextScene;
+    if (nextScene !== "debrief") combatSuppressed = false;
     if (!context || !engineSceneGain || !menuSceneGain) return;
     const airborne = operation?.aircraft?.filter((plane) => !["ground", "taxiOut", "landingRoll", "taxiIn", "crashing", "knocked"].includes(plane.phase)).length || 0;
+    syncFighter(operation?.fighter || null, speedMultiplier);
     if (!force && !sceneChanged && airborne === lastAirborne && speedMultiplier === lastSpeed) return;
     previousScene = nextScene;
     lastAirborne = airborne;
@@ -291,6 +376,11 @@ export function createSoundDirector() {
       mix: { ...mix },
       crashDuration: library?.crashDuration(selections.crash) || ({ crashA: 2.15, crashB: 2.72, crashC: 1.55 }[selections.crash] || 2.15),
       renderedBuffers: library?.renderedBufferCount() || 0,
+      combatSuppressed,
+      fighterActive: Boolean(fighterSource),
+      fighterPan: fighterPanner?.pan.value || 0,
+      activeCombatSources: ["engines", "weapons", "explosions"].reduce((total, group) => total + (activeSources.get(group)?.size || 0), 0),
+      lastPreviewBus,
     };
   }
 
@@ -298,6 +388,8 @@ export function createSoundDirector() {
     unlock,
     play,
     sync,
+    enterDebrief,
+    previewBus,
     setEnabled,
     setMix,
     refreshPreferences,

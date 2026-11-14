@@ -92,7 +92,8 @@ button:focus-visible, summary:focus-visible, input:focus-visible, canvas:focus-v
 }
 
 .currency-strip { margin-top: 13px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px; gap: 10px; }
-.currency-ledger { min-width: 0; display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.currency-ledger { min-width: 0; display: grid; grid-template-rows: 23px 13px; align-items: center; justify-items: start; font-variant-numeric: tabular-nums; }
+.currency-value { display: inline-flex !important; align-items: center; gap: 5px; }
 .currency-ledger svg { width: 18px; height: 18px; fill: #d1ad61; }
 .currency-ledger span { overflow: hidden; color: #d5ddcf; font-size: 10px; letter-spacing: .08em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
 .currency-ledger strong { color: var(--paper); font-size: 20px; line-height: 1; }
@@ -397,6 +398,12 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .sound-mix-list small { margin-top: 2px; color: var(--ink-soft); font-size: 11px; line-height: 1.15; }
 .sound-mix-list input[type="range"] { width: 100%; min-height: 44px; accent-color: var(--signal-dark); cursor: pointer; }
 .sound-mix-list output { color: var(--signal-dark); font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums; text-align: right; }
+.install-prompt { position: fixed; z-index: 70; left: 50%; bottom: max(14px, env(safe-area-inset-bottom)); width: min(calc(100% - 24px), 420px); padding: 12px; display: grid; grid-template-columns: minmax(0,1fr) auto auto; align-items: center; gap: 9px; transform: translateX(-50%); color: var(--paper); background: #1b2a25; border: 1px solid rgba(209,173,97,.55); border-radius: 12px; box-shadow: 0 14px 40px rgba(0,0,0,.45); }
+.install-prompt div, .install-prompt strong, .install-prompt small { display: block; }
+.install-prompt strong { color: #d9b45a; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; }
+.install-prompt small { margin-top: 2px; color: #d5ddcf; font-size: 11px; line-height: 1.2; }
+.install-prompt button { min-height: 42px; padding: 0 11px; color: var(--paper); background: var(--signal-dark); border-radius: 8px; font-weight: 800; text-transform: uppercase; }
+.install-prompt button:last-child { color: #d5ddcf; background: transparent; }
 .text-action { min-height: 44px; color: var(--signal-dark); background: transparent; text-align: left; text-decoration: underline; text-underline-offset: 3px; }
 .reset-action {
   width: 100%;

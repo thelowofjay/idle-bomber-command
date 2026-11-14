@@ -1,4 +1,4 @@
-const CACHE = "idle-bomber-command-v27";
+const CACHE = "idle-bomber-command-v28";
 const SHELL = [
   "./",
   "./index.html",

@@ -144,10 +144,10 @@ export function createAudioLibrary(context) {
     return makeBuffer(`grenade-mechanical-${cue}`, .32, (data, rate) => {
       for (let index = 0; index < data.length; index += 1) {
         const time = index / rate;
-        const pin = Math.exp(-time * (sharper ? 105 : 90)) * (Math.sin(time * Math.PI * 2 * 2850) + .55 * Math.sin(time * Math.PI * 2 * 4380));
+        const pin = Math.exp(-time * (sharper ? 118 : 102)) * (Math.sin(time * Math.PI * 2 * 2180) + .32 * Math.sin(time * Math.PI * 2 * 3520));
         const spoonTime = time - .11;
-        const spoon = spoonTime > 0 ? Math.exp(-spoonTime * 42) * (.7 * Math.sin(spoonTime * Math.PI * 2 * 1180) + .38 * Math.sin(spoonTime * Math.PI * 2 * 2070)) : 0;
-        data[index] = (pin * .16 + spoon * .22) * (distant ? .58 : 1);
+        const spoon = spoonTime > 0 ? Math.exp(-spoonTime * 54) * (.62 * Math.sin(spoonTime * Math.PI * 2 * 860) + .2 * Math.sin(spoonTime * Math.PI * 2 * 1740)) : 0;
+        data[index] = (pin * .11 + spoon * .18) * (distant ? .58 : 1);
       }
       normalize(data, distant ? .55 : .72);
     });
@@ -167,14 +167,16 @@ export function createAudioLibrary(context) {
     return makeBuffer(`${kind}-impact-${cue}`, profile.duration, (data, rate) => {
       const rand = random(profile.seed);
       let body = 0;
+      let pressure = 0;
       const debris = Array.from({ length: kind === "crash" ? 18 : 12 }, () => .08 + rand() * 1.05);
       for (let index = 0; index < data.length; index += 1) {
         const time = index / rate;
         const white = rand() * 2 - 1;
-        body += (white - body) * .055;
-        let sample = Math.exp(-time * 42) * white * profile.blast
-          + Math.exp(-time * 5.8) * body * profile.dirt
-          + Math.exp(-time * 8.2) * Math.sin(time * Math.PI * 2 * 47) * profile.blast * .82
+        body += (white - body) * .035;
+        pressure += (white - pressure) * .008;
+        let sample = Math.exp(-time * 68) * white * profile.blast * 1.12
+          + Math.exp(-time * 5.2) * body * profile.dirt
+          + Math.exp(-time * 7.4) * pressure * profile.blast * 1.15
           + Math.exp(-time * 12) * Math.sin(time * Math.PI * 2 * 690) * profile.metal;
         if (kind === "crash" && time >= .11) {
           const local = time - .11;

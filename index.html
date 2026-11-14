@@ -30,16 +30,14 @@
           <h1>Idle Bomber Command</h1>
           <p id="operationLabel" class="sr-only">Operation 01 · Trench Network</p>
         </div>
-        <div class="currency-strip" aria-label="Currency balances">
-          <div class="currency-ledger">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 1 4 12.7V22l-4-2-4 2v-7.3A7 7 0 0 1 12 2m0 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8"/></svg>
-            <span>Medals</span>
-            <strong id="bankedMedals">0</strong>
-          </div>
-          <div class="currency-ledger">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h14v3c0 3-1.6 5.2-4.3 6.2V15H18v2h-5v2h4v2H7v-2h4v-2H6v-2h3.3v-2.8C6.6 11.2 5 9 5 6zm3 3c0 3.4 1.6 4.5 4 4.5s4-1.1 4-4.5zM3 5h2v4H3zm16 0h2v4h-2z"/></svg>
-            <span>Boss trophies</span>
-            <strong id="bankedTrophies">0</strong>
+          <div class="currency-strip" aria-label="Currency balances">
+            <div class="currency-ledger">
+              <span class="currency-value"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 1 4 12.7V22l-4-2-4 2v-7.3A7 7 0 0 1 12 2m0 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8"/></svg><strong id="bankedMedals">0</strong></span>
+              <span>Medals</span>
+            </div>
+            <div class="currency-ledger">
+              <span class="currency-value"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h14v3c0 3-1.6 5.2-4.3 6.2V15H18v2h-5v2h4v2H7v-2h4v-2H6v-2h3.3v-2.8C6.6 11.2 5 9 5 6zm3 3c0 3.4 1.6 4.5 4 4.5s4-1.1 4-4.5zM3 5h2v4H3zm16 0h2v4h-2z"/></svg><strong id="bankedTrophies">0</strong></span>
+              <span>Boss trophies</span>
           </div>
           <button id="settingsAction" class="settings-action" type="button" aria-label="Open settings" aria-haspopup="dialog" aria-controls="settingsDialog">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 2 .6 2.3a8 8 0 0 1 3.8 0L14.5 2l3.2 1.8-1.7 1.7a8 8 0 0 1 1.9 3.3l2.3-.6v3.6l-2.3-.6a8 8 0 0 1-1.9 3.3l1.7 1.7-3.2 1.8-.6-2.3a8 8 0 0 1-3.8 0L9.5 18l-3.2-1.8L8 14.5a8 8 0 0 1-1.9-3.3l-2.3.6V8.2l2.3.6A8 8 0 0 1 8 5.5L6.3 3.8zm2.5 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6"/></svg>
@@ -116,7 +114,7 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6v2h-1v5l5 8.5A3 3 0 0 1 16.4 22H7.6A3 3 0 0 1 5 17.5L10 9V4H9zm1.8 12-3 5h8.4l-3-5z"/></svg><span>Armory</span>
             </button>
             <button id="maintenanceTab" class="dock-action" type="button" aria-haspopup="dialog" aria-controls="departmentDialog" data-department="maintenance">
-              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4.5a4 4 0 0 0-5.4 5.4L3.5 15.5a2.1 2.1 0 0 0 3 3l5.6-5.6a4 4 0 0 0 5.4-5.4l-2.3 2.3-2.8-2.8z"/><path d="m14.5 3 2-2 5.5 5.5-2 2M18 6 8 16"/></svg><span>Maintenance</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 5.3a5.2 5.2 0 0 0-6.6 6.6L3 17a2.8 2.8 0 0 0 4 4l5.1-5.1a5.2 5.2 0 0 0 6.6-6.6l-3.2 3.2-3.9-1.1-1.1-3.9zM5 18.4 9.4 14l.6.6L5.6 19z"/></svg><span>Maintenance</span>
             </button>
             <button id="flightOperationsTab" class="dock-action" type="button" aria-haspopup="dialog" aria-controls="departmentDialog" data-department="flightOperations">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21v-2h2V9l5-5 5 5v10h2v2zm5-2h4v-5h-4zm0-8h4V9.8l-2-2-2 2z"/></svg><span>Flight Ops</span>
@@ -271,7 +269,7 @@
             </button>
           </section>
           <section id="settingsSoundPanel" class="sound-mix-panel" role="tabpanel" aria-labelledby="settingsSoundTab" hidden>
-            <div class="sound-mix-summary"><strong id="favoriteSoundCount">7 workshop favorites active</strong><small>Your selections load automatically on this device.</small></div>
+            <div class="sound-mix-summary"><strong id="favoriteSoundCount">7 workshop favorites active</strong><small>Your selections load automatically. Moving a slider plays a short preview.</small></div>
             <div class="sound-mix-list">
               <label><span><strong>Master</strong><small>Entire game mix</small></span><input id="masterVolume" data-sound-mix="master" type="range" min="0" max="1" value="0.72" step="0.05"><output for="masterVolume">72%</output></label>
               <label><span><strong>Music</strong><small>Main Menu loop</small></span><input id="musicVolume" data-sound-mix="music" type="range" min="0" max="1" value="0.45" step="0.05"><output for="musicVolume">45%</output></label>
@@ -301,14 +299,20 @@
           <dl class="debrief-record">
             <div><dt>Sorties completed</dt><dd id="debriefSorties">0</dd></div>
             <div><dt>Targets destroyed</dt><dd id="debriefTargets">0</dd></div>
-            <div><dt>Aircraft knocked out</dt><dd id="debriefLost">0</dd></div>
-            <div><dt>Aircraft recovered</dt><dd id="debriefRecovered">1</dd></div>
+            <div><dt>Aircraft disabled this sortie</dt><dd id="debriefLost">0</dd></div>
+            <div><dt>Aircraft returned safely</dt><dd id="debriefRecovered">1</dd></div>
             <div><dt>Survival bonus</dt><dd id="debriefSurvival">+0 (0%)</dd></div>
           </dl>
-          <p class="recovery-note">Aircraft are recovered after every operation. Knocked out does not mean permanently lost.</p>
+          <p class="recovery-note">Disabled aircraft are repaired before the next operation; none are permanently lost.</p>
           <button id="closeDebrief" class="primary-action" type="button">Return to Main Menu</button>
         </div>
       </dialog>
+
+      <aside id="installPrompt" class="install-prompt" aria-labelledby="installPromptTitle" hidden>
+        <div><strong id="installPromptTitle">Install command console</strong><small>Keep the game on your home screen and ready offline.</small></div>
+        <button id="installAction" type="button">Install</button>
+        <button id="dismissInstall" type="button" aria-label="Dismiss install prompt">Not now</button>
+      </aside>
 
       <footer class="key-guide" aria-label="Keyboard controls">
         <span><kbd>Space</kbd> pause / resume</span>

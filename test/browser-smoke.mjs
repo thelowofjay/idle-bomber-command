@@ -91,6 +91,9 @@ try {
   assert.equal(await evaluate("window.__IBC__.getAudioState().mix.music"), .3);
   assert.equal(await evaluate("JSON.parse(localStorage.getItem('ibc-sound-mix')).music"), .3);
   assert.equal(await evaluate("document.querySelector('#musicVolume + output').value"), "30%");
+  await evaluate("document.querySelector('#weaponsVolume').value = '0.55'; document.querySelector('#weaponsVolume').dispatchEvent(new Event('input', { bubbles: true })); true");
+  await new Promise((resolve) => setTimeout(resolve, 260));
+  assert.equal(await evaluate("window.__IBC__.getAudioState().lastPreviewBus"), "weapons");
   if (captureDir) await capture("mobile-sound-mix.png");
   await evaluate("document.querySelector('#settingsGeneralTab').click(); true");
   assert.equal(await evaluate("document.querySelector('#settingsGeneralPanel').hidden"), false);
@@ -165,11 +168,14 @@ try {
   assert.equal(firstPass.targets.find((target) => target.id === "gun-right").hp, 16);
   assert.equal(firstPass.targets.find((target) => target.id === "bunker-left").hp, 64);
   assert.equal(firstPass.hits > 0, true);
+  assert.equal(firstPass.effects.some((effect) => effect.type === "target-feedback" && effect.text.includes("1 GRENADE")), true);
   const integrityBeforeThreats = firstPass.aircraft.reduce((sum, plane) => sum + plane.integrity, 0);
   await evaluate("window.__IBC__.triggerThreatForTest('rifle'); window.__IBC__.triggerThreatForTest('aa'); window.__IBC__.spawnFighterForTest(); window.__IBC__.simulateForTest(0.1); true");
   const turningFighter = await evaluate("window.__IBC__.getState().operation.fighter");
   assert.notEqual(turningFighter, null);
   assert.equal(Math.abs(turningFighter.heading) > 0.05, true);
+  await new Promise((resolve) => setTimeout(resolve, 120));
+  assert.equal(await evaluate("window.__IBC__.getAudioState().fighterActive"), true);
   await evaluate("(() => { for (let i = 0; i < 180; i += 1) { window.__IBC__.simulateForTest(0.05); if (window.__IBC__.getState().operation.threatEvents.fighter > 0) return true; } return false; })()");
   const threatState = await evaluate("window.__IBC__.getState().operation");
   assert.equal(threatState.threatEvents.rifle >= 1, true);
@@ -257,10 +263,17 @@ try {
   assert.equal(await evaluate("window.__IBC__.getState().operation.endReason"), "retreated");
   assert.equal(await evaluate("document.querySelector('#debriefDialog').open"), true);
   assert.equal(await evaluate("document.querySelector('.debrief-total span').textContent"), "Medals");
+  assert.equal(await evaluate("window.__IBC__.getAudioState().combatSuppressed"), true);
+  assert.equal(await evaluate("window.__IBC__.getAudioState().fighterActive"), false);
+  assert.equal(await evaluate("window.__IBC__.getAudioState().activeCombatSources"), 0);
+  assert.equal(await evaluate("[...document.querySelectorAll('.debrief-record dt')].some((node) => node.textContent === 'Aircraft disabled this sortie')"), true);
+  await evaluate("window.__IBC__.offerInstallForTest(); true");
+  assert.equal(await evaluate("document.querySelector('#installPrompt').hidden"), true);
   if (captureDir) await capture("mobile-debrief.png");
   await evaluate("document.querySelector('#closeDebrief').click(); true");
   assert.equal(await evaluate("window.__IBC__.getState().state"), "base");
   assert.equal(await evaluate("document.querySelector('#baseView').hidden"), false);
+  assert.equal(await evaluate("document.querySelector('#installPrompt').hidden"), false);
   const horizontalOverflow = await evaluate("(() => ({ page: [document.documentElement.clientWidth, document.documentElement.scrollWidth], offenders: [...document.querySelectorAll('body *')].filter((node) => node.getBoundingClientRect().right > document.documentElement.clientWidth + 1).slice(0, 8).map((node) => [node.tagName, node.id, node.className, Math.round(node.getBoundingClientRect().right)]) }))()");
   assert.equal(horizontalOverflow.page[1] <= horizontalOverflow.page[0], true, JSON.stringify(horizontalOverflow));
   await evaluate("window.confirm = () => true; document.querySelector('#resetSave').click(); true");
@@ -306,7 +319,7 @@ try {
   assert.equal(await evaluate("window.__IBC__.getAudioState().mix.music"), .3);
   await evaluate("document.querySelector('#settingsAction').click(); document.querySelector('#settingsSoundTab').click(); true");
   assert.equal(await evaluate("document.querySelector('#favoriteSoundCount').textContent"), "7 of 7 workshop favorites active");
-  console.log("Browser smoke passed: one-time sound gate, configurable sortie-upgrade auto-pause, adopted Workshop favorites, six-channel persisted mix, delayed grenade impacts, synchronized aircraft crash, nine-target durability, road-following priority truck, smoothed flight, responsive shell, and offline reloads.");
+  console.log("Browser smoke passed: sound gate, configurable upgrade pause, mixer previews, spatial fighter audio, debrief quiescence, delayed grenade impacts, target teaching, crash synchronization, priority timing, install offer, responsive shell, and offline reloads.");
 } finally {
   socket?.close();
   if (browser.exitCode === null && browser.signalCode === null) {

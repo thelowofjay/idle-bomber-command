@@ -22,6 +22,7 @@ import { createSoundDirector } from "./sound.js";
 const WORLD = { width: 390, height: 560 };
 const SAVE_KEY = "idle-bomber-command.prototype.v1";
 const SOUND_GATE_KEY = "idle-bomber-command.sound-gate.v1";
+const INSTALL_DISMISSED_KEY = "idle-bomber-command.install-dismissed.v1";
 const canvas = document.querySelector("#gameCanvas");
 const ctx = canvas.getContext("2d");
 const assets = {
@@ -112,6 +113,7 @@ const ui = Object.fromEntries([
   "closeDepartment", "sortieUpgradeList", "sortieUpgradesAction", "sortieDialog", "closeSortieUpgrades", "settingsAction", "settingsDialog", "closeSettings",
   "settingsGeneralTab", "settingsSoundTab", "settingsGeneralPanel", "settingsSoundPanel", "favoriteSoundCount",
   "soundGate", "enterCommand", "sortiePauseNotice",
+  "installPrompt", "installAction", "dismissInstall",
 ].map((id) => [id, document.querySelector(`#${id}`)]));
 
 let save = loadSave();
@@ -121,6 +123,8 @@ let selectedOperationIndex = 0;
 let operationGestureStart = null;
 let lastFrame = performance.now();
 let sortieDialogAutoPaused = false;
+let deferredInstallPrompt = null;
+let mixPreviewTimer = null;
 const sound = createSoundDirector();
 sound.setEnabled(save.settings.sound);
 
@@ -176,6 +180,7 @@ function createOperation() {
     prioritySpawned: false,
     bombs: [],
     effects: [],
+    targetLessons: {},
     stats,
   };
 }
@@ -255,6 +260,7 @@ function finishOperation(retreated = false) {
   operation.effects = [];
   operation.priority = null;
   persist();
+  sound.enterDebrief();
   state = "debrief";
   sound.sync(state, operation, save.settings.doubleSpeed ? 2 : 1);
   ui.statePlate.setAttribute("aria-hidden", "true");
@@ -294,6 +300,7 @@ function returnToBase() {
   if (ui.debriefDialog.open) ui.debriefDialog.close();
   operation = null;
   setState("base");
+  maybeShowInstallPrompt();
   announce("Returned to Forward Airfield. Maintenance and engineering are available.");
 }
 
@@ -565,12 +572,16 @@ function updatePriority(dt) {
       maxHp: 8,
       incomingDamage: 0,
       bombPending: false,
+      announced: false,
     };
-    ui.priorityButton.hidden = false;
-    announce(`Priority cargo truck entering from the ${direction > 0 ? "west" : "east"}. Tap Mark target or press 1.`);
-    sound.play("priority-alert");
   }
   if (!operation.priority) return;
+  if (!operation.priority.announced && operation.priority.x >= operation.priority.radius + 6 && operation.priority.x <= WORLD.width - operation.priority.radius - 6) {
+    operation.priority.announced = true;
+    ui.priorityButton.hidden = false;
+    announce(`Priority cargo truck entering from the ${operation.priority.direction > 0 ? "west" : "east"}. Tap Mark target or press 1.`);
+    sound.play("priority-alert");
+  }
   if (!operation.priority.bombPending && movePriorityVehicle(operation.priority, dt)) {
     operation.priority = null;
     ui.priorityButton.hidden = true;
@@ -607,7 +618,7 @@ function movePriorityVehicle(target, dt) {
 }
 
 function markPriority() {
-  if (!operation?.priority) return;
+  if (!operation?.priority?.announced) return;
   operation.priority.marked = true;
   ui.priorityButton.hidden = true;
   assignPriorityAircraft();
@@ -696,6 +707,16 @@ function resolveBombImpact(bomb) {
     operation.baseMedals += medals;
     operation.destroyedTargets += 1;
     announce(`${targetName} destroyed. ${medals} ${medals === 1 ? "medal" : "medals"} secured.`);
+  }
+  if (!operation.targetLessons[target.type]) {
+    operation.targetLessons[target.type] = true;
+    const lesson = target.type === "foxhole"
+      ? "FOXHOLE DESTROYED · 1 GRENADE"
+      : target.type === "emplacement"
+        ? `ARTILLERY DAMAGED · ${Math.max(0, target.hp)}/${target.maxHp}`
+        : `BUNKER DAMAGED · ${Math.max(0, target.hp)}/${target.maxHp}`;
+    addEffect(target.x, target.y - 20, "target-feedback", { text: lesson });
+    announce(`${lesson.replace(" · ", ". ")}.`);
   }
   if (target.hp <= 0 && operation.targets.every((candidate) => candidate.hp <= 0) && operation.waveRespawn <= 0) {
     operation.waveRespawn = TUNING.targetWaveDelay;
@@ -800,6 +821,7 @@ function randomInteger(minimum, maximum) {
 
 function addEffect(x, y, type, extra = {}) {
   const duration = type === "crash-explosion" ? 1.4
+    : type === "target-feedback" ? 1.45
     : type === "crash-smoke" ? .9
       : type === "lost" ? 1.3
     : type === "rifle" ? 0.26
@@ -925,7 +947,7 @@ function drawAircraft(plane) {
   }
   ctx.restore();
 
-  if (operation && plane.phase !== "ground" && plane.altitude > .65) {
+  if (operation && plane.phase !== "ground" && plane.altitude > .65 && shouldShowAircraftTag(plane)) {
     const max = operation.stats.maxIntegrity;
     ctx.fillStyle = "rgba(23,34,31,.35)";
     ctx.fillRect(x - 10, y + half + 2, 20, 2);
@@ -933,6 +955,11 @@ function drawAircraft(plane) {
     ctx.fillRect(x - 10, y + half + 2, 20 * (plane.integrity / max), 2);
     drawFlightTag(plane);
   }
+}
+
+function shouldShowAircraftTag(plane) {
+  if (!operation || operation.aircraft.length <= 5) return true;
+  return plane.id === 1 || plane.priorityAssigned || plane.integrity / operation.stats.maxIntegrity <= .65 || plane.phase === "crashing";
 }
 
 function drawFighter() {
@@ -1042,6 +1069,18 @@ function drawEffects() {
     if (save.settings.reducedEffects && effect.type !== "crash-explosion") continue;
     const progress = 1 - effect.life / effect.maxLife;
     const alpha = Math.max(0, 1 - progress);
+    if (effect.type === "target-feedback") {
+      ctx.globalAlpha = Math.min(1, alpha * 1.45);
+      ctx.font = "800 9px 'Barlow Condensed', Arial";
+      ctx.textAlign = "center";
+      const width = Math.min(178, ctx.measureText(effect.text).width + 16);
+      ctx.fillStyle = "rgba(23,34,31,.88)";
+      ctx.fillRect(effect.x - width / 2, effect.y - 11 - progress * 8, width, 18);
+      ctx.fillStyle = "#efe5c8";
+      ctx.fillText(effect.text, effect.x, effect.y + 1 - progress * 8);
+      ctx.textAlign = "start";
+      continue;
+    }
     if (effect.type === "crash-smoke") {
       ctx.globalAlpha = alpha * .42;
       ctx.fillStyle = "#1d2521";
@@ -1275,6 +1314,20 @@ function prepareSoundGate() {
   if (shouldShow) requestAnimationFrame(() => ui.enterCommand.focus());
 }
 
+function maybeShowInstallPrompt() {
+  const standalone = window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  ui.installPrompt.hidden = state !== "base" || standalone || save.operations < 1 || !deferredInstallPrompt || localStorage.getItem(INSTALL_DISMISSED_KEY) === "yes";
+}
+
+async function installGame() {
+  if (!deferredInstallPrompt) return;
+  await deferredInstallPrompt.prompt();
+  const choice = await deferredInstallPrompt.userChoice;
+  if (choice?.outcome !== "accepted") localStorage.setItem(INSTALL_DISMISSED_KEY, "yes");
+  deferredInstallPrompt = null;
+  ui.installPrompt.hidden = true;
+}
+
 async function enterCommand() {
   ui.enterCommand.disabled = true;
   ui.enterCommand.textContent = "Entering command…";
@@ -1426,6 +1479,8 @@ ui.settingsSoundTab.addEventListener("click", () => selectSettingsPanel("sound")
 for (const input of document.querySelectorAll("[data-sound-mix]")) input.addEventListener("input", () => {
   sound.setMix({ [input.dataset.soundMix]: Number(input.value) });
   input.nextElementSibling.value = `${Math.round(Number(input.value) * 100)}%`;
+  clearTimeout(mixPreviewTimer);
+  if (input.dataset.soundMix !== "music") mixPreviewTimer = setTimeout(() => sound.previewBus(input.dataset.soundMix), 180);
 });
 ui.sortieUpgradesAction.addEventListener("click", openSortieUpgrades);
 ui.closeSortieUpgrades.addEventListener("click", closeSortieUpgrades);
@@ -1474,6 +1529,20 @@ ui.pauseForUpgradesToggle.addEventListener("change", () => {
 ui.resetSave.addEventListener("click", resetPrototype);
 canvas.addEventListener("pointerdown", handleCanvasPointer);
 ui.enterCommand.addEventListener("click", enterCommand);
+ui.installAction.addEventListener("click", installGame);
+ui.dismissInstall.addEventListener("click", () => {
+  localStorage.setItem(INSTALL_DISMISSED_KEY, "yes");
+  ui.installPrompt.hidden = true;
+});
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  maybeShowInstallPrompt();
+});
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  ui.installPrompt.hidden = true;
+});
 document.addEventListener("pointerdown", () => { void sound.unlock(); }, { capture: true, once: true });
 window.addEventListener("resize", resizeCanvas);
 new ResizeObserver(resizeCanvas).observe(canvas);
@@ -1528,7 +1597,7 @@ window.__IBC__ = {
       prioritySchedule: structuredClone(operation.prioritySchedule),
       threatEvents: structuredClone(operation.threatEvents),
       bombs: operation.bombs.map((bomb) => ({ ...structuredClone(bomb), visual: bombVisualState(bomb) })),
-      effects: operation.effects.map(({ type, x, y, fromX, fromY, life }) => ({ type, x, y, fromX, fromY, life })),
+      effects: operation.effects.map(({ type, x, y, fromX, fromY, life, text }) => ({ type, x, y, fromX, fromY, life, text })),
       priority: operation.priority ? structuredClone(operation.priority) : null,
       targets: operation.targets.map(({ id, type, x, y, hp, maxHp, incomingDamage, attackOrder }) => ({ id, type, x, y, hp, maxHp, incomingDamage, attackOrder })),
       aircraft: operation.aircraft.map(({ id, x, y, phase, altitude, heading, visualBank, integrity, hasBomb, assignedTargetId, priorityAssigned, crashElapsed, crashDuration, crashImpactX, crashImpactY }) => ({ id, x, y, phase, altitude, heading, visualBank, integrity, hasBomb, assignedTargetId, priorityAssigned, crashElapsed, crashDuration, crashImpactX, crashImpactY, visualSize: aircraftVisualSize(altitude) })),
@@ -1552,7 +1621,7 @@ window.__IBC__ = {
     operation.priority = {
       x: 282, y: 216, radius: 30, life: 30, marked: false, direction: -1, speed: 22,
       route: [{ x: 282, y: 216 }, { x: 222, y: 223 }, { x: 160, y: 226 }, { x: 98, y: 221 }, { x: 34, y: 224 }, { x: -38, y: 222 }],
-      routeIndex: 1, hp: 8, maxHp: 8, incomingDamage: 0, bombPending: false,
+      routeIndex: 1, hp: 8, maxHp: 8, incomingDamage: 0, bombPending: false, announced: true,
     };
     ui.priorityButton.hidden = false;
   },
@@ -1626,6 +1695,10 @@ window.__IBC__ = {
       operation.destroyedTargets = 2;
     }
     finishOperation();
+  },
+  offerInstallForTest: () => {
+    deferredInstallPrompt = { prompt: async () => {}, userChoice: Promise.resolve({ outcome: "accepted" }) };
+    maybeShowInstallPrompt();
   },
   grantBondsForTest: (amount = 100) => {
     if (!operation) return;
