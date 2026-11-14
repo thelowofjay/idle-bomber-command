@@ -26,9 +26,10 @@ jobs:
         run: npm test
       - name: Assemble static site
         run: |
-          mkdir -p _site/assets/game _site/fonts _site/sound-lab
+          mkdir -p _site/assets/game _site/assets/audio _site/fonts _site/sound-lab
           cp index.html styles.css core.js game.js sound.js audio-library.js manifest.webmanifest sw.js icon.svg icon-192.png icon-512.png _site/
           cp assets/game/battlefield-airfield-v3.webp assets/game/canvas-biplane-topdown.webp assets/game/bomber-lineup-main-menu.webp assets/game/hardened-bunker-topdown.webp assets/game/soft-emplacement-topdown.webp assets/game/priority-cargo-truck-topdown.webp assets/game/two-man-foxhole-topdown.webp _site/assets/game/
+          cp assets/audio/menu-laments-of-war.mp3 assets/audio/README.md _site/assets/audio/
           cp fonts/barlow-condensed-400.ttf fonts/barlow-condensed-600.ttf fonts/barlow-condensed-700.ttf fonts/barlow-condensed-800.ttf _site/fonts/
           cp sound-lab/index.html sound-lab/sound-lab.css sound-lab/sound-lab.js sound-lab/REFERENCES.md _site/sound-lab/
           touch _site/.nojekyll

@@ -43,6 +43,7 @@ try {
   if (captureDir) await capture("mobile-sound-gate.png");
   await clickElement("#enterCommand");
   await waitFor(() => evaluate("document.querySelector('#soundGate').hidden"));
+  assert.equal(await evaluate("window.__IBC__.getAudioState().menuRecording"), "Laments of the War");
   assert.equal(await evaluate("localStorage.getItem('idle-bomber-command.sound-gate.v1')"), "seen");
   assert.equal(await evaluate("document.querySelectorAll('.currency-ledger').length"), 2);
   assert.equal(await evaluate("document.querySelector('#bankedMedals').textContent"), "0");
@@ -318,7 +319,7 @@ try {
   assert.equal(await evaluate("window.__IBC__.getAudioState().crashDuration"), 2.72);
   assert.equal(await evaluate("window.__IBC__.getAudioState().mix.music"), .3);
   await evaluate("document.querySelector('#settingsAction').click(); document.querySelector('#settingsSoundTab').click(); true");
-  assert.equal(await evaluate("document.querySelector('#favoriteSoundCount').textContent"), "7 of 7 workshop favorites active");
+  assert.equal(await evaluate("document.querySelector('#favoriteSoundCount').textContent"), "Somber orchestral menu · battlefield favorites active");
   console.log("Browser smoke passed: sound gate, configurable upgrade pause, mixer previews, spatial fighter audio, debrief quiescence, delayed grenade impacts, target teaching, crash synchronization, priority timing, install offer, responsive shell, and offline reloads.");
 } finally {
   socket?.close();

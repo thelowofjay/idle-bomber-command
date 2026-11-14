@@ -7,6 +7,7 @@ import {
 } from "./audio-library.js";
 
 const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+const MENU_RECORDING_URL = "./assets/audio/menu-laments-of-war.mp3";
 
 function clamp(value, minimum, maximum) {
   return Math.max(minimum, Math.min(maximum, value));
@@ -24,6 +25,8 @@ export function createSoundDirector() {
   let menuSceneGain = null;
   let engineSceneGain = null;
   let menuSource = null;
+  let menuRecording = null;
+  let menuRecordingPromise = null;
   let engineSource = null;
   let fighterSource = null;
   let fighterGain = null;
@@ -84,18 +87,44 @@ export function createSoundDirector() {
     master.connect(context.destination);
     applyMix(false);
     createLoopSources();
+    void loadMenuRecording();
     return true;
+  }
+
+  function loadMenuRecording() {
+    if (!context || !library) return Promise.resolve(null);
+    if (menuRecording) return Promise.resolve(menuRecording);
+    if (!menuRecordingPromise) {
+      menuRecordingPromise = fetch(MENU_RECORDING_URL)
+        .then((response) => {
+          if (!response.ok) throw new Error(`Menu recording failed: ${response.status}`);
+          return response.arrayBuffer();
+        })
+        .then((bytes) => context.decodeAudioData(bytes))
+        .catch(() => library.menuBuffer(selections.menu))
+        .then((buffer) => {
+          menuRecording = buffer;
+          createMenuSource();
+          return buffer;
+        });
+    }
+    return menuRecordingPromise;
+  }
+
+  function createMenuSource() {
+    if (!context || !menuRecording || !menuSceneGain) return;
+    try { menuSource?.stop(); } catch {}
+    menuSource = context.createBufferSource();
+    menuSource.buffer = menuRecording;
+    menuSource.loop = true;
+    menuSource.connect(menuSceneGain);
+    menuSource.start();
   }
 
   function createLoopSources() {
     if (!context || !library) return;
-    try { menuSource?.stop(); } catch {}
     try { engineSource?.stop(); } catch {}
-    menuSource = context.createBufferSource();
-    menuSource.buffer = library.menuBuffer(selections.menu);
-    menuSource.loop = true;
-    menuSource.connect(menuSceneGain);
-    menuSource.start();
+    if (menuRecording) createMenuSource();
     engineSource = context.createBufferSource();
     engineSource.buffer = library.radialBuffer(selections.engine);
     engineSource.loop = true;
@@ -141,6 +170,7 @@ export function createSoundDirector() {
     if (context.state === "suspended") {
       try { await context.resume(); } catch { return false; }
     }
+    await loadMenuRecording();
     sync(scene, null, 1, true);
     return context.state === "running";
   }
@@ -376,6 +406,7 @@ export function createSoundDirector() {
       mix: { ...mix },
       crashDuration: library?.crashDuration(selections.crash) || ({ crashA: 2.15, crashB: 2.72, crashC: 1.55 }[selections.crash] || 2.15),
       renderedBuffers: library?.renderedBufferCount() || 0,
+      menuRecording: menuRecording ? "Laments of the War" : "loading",
       combatSuppressed,
       fighterActive: Boolean(fighterSource),
       fighterPan: fighterPanner?.pan.value || 0,

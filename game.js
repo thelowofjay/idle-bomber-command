@@ -1230,7 +1230,7 @@ function selectSettingsPanel(name) {
 
 function updateSoundMixUI() {
   const audio = sound.getState();
-  ui.favoriteSoundCount.textContent = `${audio.favorites} of 7 workshop favorites active`;
+  ui.favoriteSoundCount.textContent = "Somber orchestral menu · battlefield favorites active";
   for (const input of document.querySelectorAll("[data-sound-mix]")) {
     const value = audio.mix[input.dataset.soundMix];
     if (document.activeElement !== input) input.value = String(value);
