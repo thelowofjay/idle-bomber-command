@@ -26,6 +26,7 @@ test("default force begins with one biplane and no permanent currency", () => {
   assert.equal(save.medals, 0);
   assert.equal(save.trophies, 0);
   assert.equal(save.settings.doubleSpeed, false);
+  assert.equal(save.settings.pauseForSortieUpgrades, true);
   assert.deepEqual(save.upgrades, { payload: 0, armor: 0, speed: 0, turnaround: 0 });
 });
 
@@ -75,6 +76,7 @@ test("save sanitization rejects malformed values and migrates legacy bonds to me
   assert.equal(save.upgrades.payload, 2);
   assert.equal(save.operations, 0);
   assert.equal(save.settings.sound, false);
+  assert.equal(save.settings.pauseForSortieUpgrades, true);
 });
 
 test("version 3 trophy balances migrate once to medals while boss trophies start empty", () => {
@@ -82,6 +84,12 @@ test("version 3 trophy balances migrate once to medals while boss trophies start
   assert.equal(save.medals, 27);
   assert.equal(save.trophies, 0);
   assert.equal(save.settings.doubleSpeed, true);
+  assert.equal(save.settings.pauseForSortieUpgrades, true);
+});
+
+test("sortie-upgrade pause preference persists explicit opt-out", () => {
+  const save = sanitizeSave({ version: 5, settings: { pauseForSortieUpgrades: false } });
+  assert.equal(save.settings.pauseForSortieUpgrades, false);
 });
 
 test("surviving aircraft add an equal-percentage medal bonus", () => {

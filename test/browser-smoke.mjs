@@ -38,6 +38,12 @@ try {
   assert.equal(await evaluate("window.__IBC__.getState().state"), "base");
   assert.equal(await evaluate("document.querySelector('#baseView').hidden"), false);
   assert.equal(await evaluate("document.querySelector('#battleView').hidden"), true);
+  assert.equal(await evaluate("document.querySelector('#soundGate').hidden"), false);
+  assert.equal(await evaluate("document.activeElement === document.querySelector('#enterCommand')"), true);
+  if (captureDir) await capture("mobile-sound-gate.png");
+  await clickElement("#enterCommand");
+  await waitFor(() => evaluate("document.querySelector('#soundGate').hidden"));
+  assert.equal(await evaluate("localStorage.getItem('idle-bomber-command.sound-gate.v1')"), "seen");
   assert.equal(await evaluate("document.querySelectorAll('.currency-ledger').length"), 2);
   assert.equal(await evaluate("document.querySelector('#bankedMedals').textContent"), "0");
   assert.equal(await evaluate("document.querySelector('#bankedTrophies').textContent"), "0");
@@ -74,6 +80,7 @@ try {
   await evaluate("document.querySelector('#settingsAction').click(); true");
   assert.equal(await evaluate("document.querySelector('#settingsDialog').open"), true);
   assert.equal(await evaluate("document.querySelector('#resetSave').getBoundingClientRect().height >= 44"), true);
+  assert.equal(await evaluate("document.querySelector('#pauseForUpgradesToggle').checked"), true);
   assert.equal(await evaluate("window.__IBC__.getAudioState().available"), true);
   assert.equal(await evaluate("document.querySelectorAll('[data-sound-mix]').length"), 6);
   await evaluate("document.querySelector('#settingsSoundTab').click(); true");
@@ -104,8 +111,17 @@ try {
   if (captureDir) await capture("mobile-mission-controls.png");
   await evaluate("document.querySelector('#sortieUpgradesAction').click(); true");
   assert.equal(await evaluate("document.querySelector('#sortieDialog').open"), true);
+  assert.equal(await evaluate("window.__IBC__.getState().state"), "paused");
+  assert.equal(await evaluate("document.querySelector('#sortiePauseNotice').textContent"), "Operation paused while this window is open.");
   assert.equal(await evaluate("document.querySelectorAll('#sortieUpgradeList [data-sortie-purchase]').length"), 3);
   if (captureDir) await capture("mobile-sortie-upgrades.png");
+  await evaluate("document.querySelector('#closeSortieUpgrades').click(); true");
+  await waitFor(() => evaluate("window.__IBC__.getState().state === 'playing'"));
+  await evaluate("document.querySelector('#settingsAction').click(); document.querySelector('#pauseForUpgradesToggle').click(); document.querySelector('#closeSettings').click(); true");
+  assert.equal(await evaluate("window.__IBC__.getState().save.settings.pauseForSortieUpgrades"), false);
+  await evaluate("document.querySelector('#sortieUpgradesAction').click(); true");
+  assert.equal(await evaluate("window.__IBC__.getState().state"), "playing");
+  assert.equal(await evaluate("document.querySelector('#sortiePauseNotice').textContent"), "Operation continues while this window is open.");
   await evaluate("document.querySelector('#closeSortieUpgrades').click(); true");
   await evaluate("document.querySelector('#settingsAction').click(); document.querySelector('#speedToggle').click(); true");
   assert.equal(await evaluate("window.__IBC__.getState().save.settings.doubleSpeed"), true);
@@ -290,7 +306,7 @@ try {
   assert.equal(await evaluate("window.__IBC__.getAudioState().mix.music"), .3);
   await evaluate("document.querySelector('#settingsAction').click(); document.querySelector('#settingsSoundTab').click(); true");
   assert.equal(await evaluate("document.querySelector('#favoriteSoundCount').textContent"), "7 of 7 workshop favorites active");
-  console.log("Browser smoke passed: adopted Workshop favorites, six-channel persisted mix, delayed grenade impacts, synchronized aircraft crash, nine-target durability, road-following priority truck, smoothed flight, responsive shell, and offline reloads.");
+  console.log("Browser smoke passed: one-time sound gate, configurable sortie-upgrade auto-pause, adopted Workshop favorites, six-channel persisted mix, delayed grenade impacts, synchronized aircraft crash, nine-target durability, road-following priority truck, smoothed flight, responsive shell, and offline reloads.");
 } finally {
   socket?.close();
   if (browser.exitCode === null && browser.signalCode === null) {
@@ -337,6 +353,12 @@ async function waitFor(check) {
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   throw new Error("Timed out waiting for browser state");
+}
+
+async function clickElement(selector) {
+  const point = await evaluate(`(() => { const rect = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }; })()`);
+  await send("Input.dispatchMouseEvent", { type: "mousePressed", x: point.x, y: point.y, button: "left", clickCount: 1 });
+  await send("Input.dispatchMouseEvent", { type: "mouseReleased", x: point.x, y: point.y, button: "left", clickCount: 1 });
 }
 
 async function capture(name) {

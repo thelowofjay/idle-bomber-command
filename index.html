@@ -16,6 +16,14 @@
     <title>Idle Bomber Command</title>
   </head>
   <body>
+    <div id="soundGate" class="sound-gate" role="dialog" aria-modal="true" aria-labelledby="soundGateTitle" aria-describedby="soundGateDescription" hidden>
+      <div class="sound-gate-card">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 31h7l9 8V9l-9 8H8zm22-13.5a10 10 0 0 1 0 13l3.1 2.5a14 14 0 0 0 0-18zM35.8 13a17 17 0 0 1 0 22l3.1 2.5a21 21 0 0 0 0-27z"/></svg>
+        <h2 id="soundGateTitle">Tap to enter command</h2>
+        <p id="soundGateDescription">Enable the airfield, engine, and battlefield soundscape.</p>
+        <button id="enterCommand" class="primary-action" type="button">Enter command</button>
+      </div>
+    </div>
     <div class="app-shell">
       <header class="mission-bar">
         <div class="identity-lockup">
@@ -221,6 +229,7 @@
             <span>Temporary · this mission</span>
           </div>
           <p>Use war bonds earned from grenade drops. Every upgrade and unspent bond expires at debrief.</p>
+          <p id="sortiePauseNotice" class="sortie-pause-notice">Operation paused while this window is open.</p>
           <div id="sortieUpgradeList" class="sortie-upgrade-list">
             <button class="sortie-upgrade" type="button" data-sortie-purchase="payload">
               <span><strong>Extra grenade rack</strong><small data-sortie-effect="payload">Payload 8 → 10</small></span>
@@ -254,6 +263,7 @@
               <label><span><strong>Sound cues</strong><small>Aircraft and battlefield audio</small></span><input id="soundToggle" type="checkbox" checked></label>
               <label><span><strong>Reduce effects</strong><small>Limit flashes and screen motion</small></span><input id="effectsToggle" type="checkbox"></label>
               <label><span><strong>2× sortie speed</strong><small>Double aircraft, threats, timers, and income</small></span><input id="speedToggle" type="checkbox"></label>
+              <label><span><strong>Pause for sortie upgrades</strong><small>Hold the operation while the upgrade window is open</small></span><input id="pauseForUpgradesToggle" type="checkbox" checked></label>
             </div>
             <button id="resetSave" class="reset-action" type="button">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a8 8 0 1 1-7.4 5H2l3.5-4L9 9H6.7A6 6 0 1 0 12 6z"/></svg>

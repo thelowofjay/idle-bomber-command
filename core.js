@@ -1,4 +1,4 @@
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 export const TUNING = Object.freeze({
   aircraftBaseCost: 8,
@@ -45,7 +45,7 @@ export function createDefaultSave() {
     aircraft: 1,
     upgrades: { payload: 0, armor: 0, speed: 0, turnaround: 0 },
     operations: 0,
-    settings: { sound: true, reducedEffects: false, doubleSpeed: false },
+    settings: { sound: true, reducedEffects: false, doubleSpeed: false, pauseForSortieUpgrades: true },
   };
 }
 
@@ -69,6 +69,7 @@ export function sanitizeSave(value) {
       sound: value.settings?.sound !== false,
       reducedEffects: value.settings?.reducedEffects === true,
       doubleSpeed: value.settings?.doubleSpeed === true,
+      pauseForSortieUpgrades: value.settings?.pauseForSortieUpgrades !== false,
     },
   };
 }

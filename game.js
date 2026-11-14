@@ -21,6 +21,7 @@ import { createSoundDirector } from "./sound.js";
 
 const WORLD = { width: 390, height: 560 };
 const SAVE_KEY = "idle-bomber-command.prototype.v1";
+const SOUND_GATE_KEY = "idle-bomber-command.sound-gate.v1";
 const canvas = document.querySelector("#gameCanvas");
 const ctx = canvas.getContext("2d");
 const assets = {
@@ -101,7 +102,7 @@ const ui = Object.fromEntries([
   "statusSwatch", "primaryAction", "pauseAction", "activeControls", "debriefDialog",
   "debriefEarned", "debriefSummary", "debriefSorties", "debriefTargets", "debriefLost",
   "debriefRecovered", "debriefSurvival", "closeDebrief", "closeDebriefIcon", "priorityButton", "statePlate",
-  "stateCode", "stateTitle", "stateMessage", "announcer", "soundToggle", "effectsToggle", "speedToggle", "speedIndicator",
+  "stateCode", "stateTitle", "stateMessage", "announcer", "soundToggle", "effectsToggle", "speedToggle", "speedIndicator", "pauseForUpgradesToggle",
   "resetSave", "upgradeList", "baseView", "battleView", "deployAction", "baseAircraftReadout",
   "baseSummary", "baseOperationNumber", "baseForceStats", "operationName", "operationLock",
   "recordOperations", "recordMedals", "recordAircraft",
@@ -110,6 +111,7 @@ const ui = Object.fromEntries([
   "flightOperationsPanel", "departmentDialog", "departmentDialogTitle", "departmentDialogSummary",
   "closeDepartment", "sortieUpgradeList", "sortieUpgradesAction", "sortieDialog", "closeSortieUpgrades", "settingsAction", "settingsDialog", "closeSettings",
   "settingsGeneralTab", "settingsSoundTab", "settingsGeneralPanel", "settingsSoundPanel", "favoriteSoundCount",
+  "soundGate", "enterCommand", "sortiePauseNotice",
 ].map((id) => [id, document.querySelector(`#${id}`)]));
 
 let save = loadSave();
@@ -118,6 +120,7 @@ let operation = null;
 let selectedOperationIndex = 0;
 let operationGestureStart = null;
 let lastFrame = performance.now();
+let sortieDialogAutoPaused = false;
 const sound = createSoundDirector();
 sound.setEnabled(save.settings.sound);
 
@@ -1149,6 +1152,7 @@ function updateUI() {
   ui.soundToggle.checked = save.settings.sound;
   ui.effectsToggle.checked = save.settings.reducedEffects;
   ui.speedToggle.checked = save.settings.doubleSpeed;
+  ui.pauseForUpgradesToggle.checked = save.settings.pauseForSortieUpgrades;
   ui.speedIndicator.hidden = !save.settings.doubleSpeed || !["playing", "paused"].includes(state);
   if (ui.settingsDialog.open) updateSoundMixUI();
 
@@ -1265,6 +1269,23 @@ function showPlate(code, title, message) {
 
 function announce(message) { ui.announcer.textContent = message; }
 
+function prepareSoundGate() {
+  const shouldShow = save.settings.sound && localStorage.getItem(SOUND_GATE_KEY) !== "seen";
+  ui.soundGate.hidden = !shouldShow;
+  if (shouldShow) requestAnimationFrame(() => ui.enterCommand.focus());
+}
+
+async function enterCommand() {
+  ui.enterCommand.disabled = true;
+  ui.enterCommand.textContent = "Entering command…";
+  await sound.unlock();
+  localStorage.setItem(SOUND_GATE_KEY, "seen");
+  ui.soundGate.hidden = true;
+  ui.enterCommand.disabled = false;
+  ui.enterCommand.textContent = "Enter command";
+  announce("Command audio enabled.");
+}
+
 function persist() { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); }
 function loadSave() {
   try { return sanitizeSave(JSON.parse(localStorage.getItem(SAVE_KEY))); }
@@ -1342,6 +1363,22 @@ function closeDepartment() {
   for (const button of [ui.requisitionsTab, ui.armoryTab, ui.maintenanceTab, ui.flightOperationsTab]) button.classList.remove("is-active");
 }
 
+function openSortieUpgrades() {
+  if (ui.sortieDialog.open) return;
+  sortieDialogAutoPaused = state === "playing" && save.settings.pauseForSortieUpgrades;
+  if (sortieDialogAutoPaused) pause("Paused while sortie upgrades are open.");
+  const paused = save.settings.pauseForSortieUpgrades;
+  ui.sortiePauseNotice.textContent = paused
+    ? "Operation paused while this window is open."
+    : "Operation continues while this window is open.";
+  ui.sortiePauseNotice.classList.toggle("is-live", !paused);
+  ui.sortieDialog.showModal();
+}
+
+function closeSortieUpgrades() {
+  if (ui.sortieDialog.open) ui.sortieDialog.close();
+}
+
 function loadImage(source) {
   const image = new Image();
   image.decoding = "async";
@@ -1390,9 +1427,14 @@ for (const input of document.querySelectorAll("[data-sound-mix]")) input.addEven
   sound.setMix({ [input.dataset.soundMix]: Number(input.value) });
   input.nextElementSibling.value = `${Math.round(Number(input.value) * 100)}%`;
 });
-ui.sortieUpgradesAction.addEventListener("click", () => { if (!ui.sortieDialog.open) ui.sortieDialog.showModal(); });
-ui.closeSortieUpgrades.addEventListener("click", () => ui.sortieDialog.close());
-ui.sortieDialog.addEventListener("cancel", (event) => { event.preventDefault(); ui.sortieDialog.close(); });
+ui.sortieUpgradesAction.addEventListener("click", openSortieUpgrades);
+ui.closeSortieUpgrades.addEventListener("click", closeSortieUpgrades);
+ui.sortieDialog.addEventListener("cancel", (event) => { event.preventDefault(); closeSortieUpgrades(); });
+ui.sortieDialog.addEventListener("close", () => {
+  const shouldResume = sortieDialogAutoPaused;
+  sortieDialogAutoPaused = false;
+  if (shouldResume && state === "paused") resume();
+});
 document.querySelectorAll("[data-theater]").forEach((button) => button.addEventListener("click", () => announce(`${button.dataset.theater} is reserved for a future 100-sector campaign.`)));
 ui.previousOperation.addEventListener("click", () => selectOperation(selectedOperationIndex - 1));
 ui.nextOperation.addEventListener("click", () => selectOperation(selectedOperationIndex + 1));
@@ -1424,8 +1466,14 @@ ui.soundToggle.addEventListener("change", () => {
 });
 ui.effectsToggle.addEventListener("change", () => { save.settings.reducedEffects = ui.effectsToggle.checked; persist(); });
 ui.speedToggle.addEventListener("change", () => { save.settings.doubleSpeed = ui.speedToggle.checked; persist(); updateUI(); });
+ui.pauseForUpgradesToggle.addEventListener("change", () => {
+  save.settings.pauseForSortieUpgrades = ui.pauseForUpgradesToggle.checked;
+  persist();
+  announce(save.settings.pauseForSortieUpgrades ? "Sortie upgrades will pause the operation." : "Sortie upgrades will remain live.");
+});
 ui.resetSave.addEventListener("click", resetPrototype);
 canvas.addEventListener("pointerdown", handleCanvasPointer);
+ui.enterCommand.addEventListener("click", enterCommand);
 document.addEventListener("pointerdown", () => { void sound.unlock(); }, { capture: true, once: true });
 window.addEventListener("resize", resizeCanvas);
 new ResizeObserver(resizeCanvas).observe(canvas);
@@ -1595,5 +1643,6 @@ window.__IBC__ = {
 };
 
 updateUI();
+prepareSoundGate();
 resizeCanvas();
 requestAnimationFrame(frame);
